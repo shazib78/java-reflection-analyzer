@@ -16,8 +16,12 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
 
     public ReflectionMethodSignature(View view) {
         this.view = view;
-        MethodSignature invokeMethodSignature =  buildMethodSignature("java.lang.reflect.Method", "invoke",
-                                                                      "java.lang.Object", Arrays.asList("java.lang.Object", "java.lang.Object[]"));
+        /*MethodSignature invokeMethodSignature =  buildMethodSignature("java.lang.reflect.Method", "invoke",
+                                                                      "java.lang.Object", Arrays.asList("java.lang.Object", "java.lang.Object[]"));*/
+        MethodSignature getMethodSignature =  buildMethodSignature("java.lang.Class", "getMethod",
+                                                                      "java.lang.reflect.Method", Arrays.asList("java.lang.String", "java.lang.Class[]"));
+        MethodSignature getDeclaredMethodMethodSignature =  buildMethodSignature("java.lang.Class", "getDeclaredMethod",
+                                                                      "java.lang.reflect.Method", Arrays.asList("java.lang.String", "java.lang.Class[]"));
         MethodSignature newInstanceMethodSignature =  buildMethodSignature("java.lang.Class", "newInstance",
                                                                            "java.lang.Object", Collections.emptyList());
         MethodSignature newInstanceWithParameters =  buildMethodSignature("java.lang.reflect.Constructor", "newInstance",
@@ -27,8 +31,8 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
         MethodSignature getFieldSignature =  buildMethodSignature("java.lang.Class", "getField",
                                                                           "java.lang.reflect.Field", Arrays.asList("java.lang.String"));
 
-        this.methodSignatures = List.of(invokeMethodSignature, newInstanceMethodSignature, newInstanceWithParameters,
-                                        getDeclaredFieldSignature, getFieldSignature);
+        this.methodSignatures = List.of(/*invokeMethodSignature,*/ newInstanceMethodSignature, newInstanceWithParameters,
+                                        getDeclaredFieldSignature, getFieldSignature, getMethodSignature, getDeclaredMethodMethodSignature);
     }
 
     private MethodSignature buildMethodSignature(String className, String methodName, String returnType, List<String> parameterType) {

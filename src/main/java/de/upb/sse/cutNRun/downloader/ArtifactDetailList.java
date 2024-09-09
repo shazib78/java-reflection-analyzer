@@ -24,7 +24,7 @@ public class ArtifactDetailList {
 
         @Getter
         @Setter
-        private static class Repository {
+        public static class Repository {
             private String id;
             private String url;
         }

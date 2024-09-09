@@ -1,10 +1,10 @@
 package de.upb.sse.cutNRun.analyzer;
 
+import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSourceAnalysis;
 import de.upb.sse.cutNRun.analyzer.methodSignature.ReflectionMethodSignature;
 import de.upb.sse.cutNRun.analyzer.methodSignature.UnsoundMethodSignatureCategory;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
+import sootup.core.graph.StmtGraph;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.expr.AbstractInvokeExpr;
 import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
@@ -15,10 +15,8 @@ import sootup.core.model.SootClass;
 import sootup.core.model.SootMethod;
 import sootup.core.views.View;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -50,6 +48,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                     log.debug("Sources of Unsoundness - Count: " + unsoundStatements.size());
                     log.debug("------------END--------------");
                     totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
+                    unsoundStatements.stream()
+                            .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));
                 }
             }
             /*for(MethodSignature  : methodSignaturesToSearch)
@@ -59,6 +59,13 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
             }*/
         }
         log.info("Sources of Unsoundness - Total Count: " + totalSourcesOfUnsoundnessCount);
+    }
+
+    private void performIntraProceduralAnalysis(SootMethod sootMethod, Stmt startStmt) {
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt);
+        argumentSourceAnalysis.execute();
+        log.info("Argument Source: {} for Statement: {}", argumentSourceAnalysis.getArgumentSource(), startStmt);
     }
 
     private boolean isSourceOfUnsoundness(Stmt statement) {

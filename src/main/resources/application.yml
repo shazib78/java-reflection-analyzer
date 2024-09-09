@@ -303,7 +303,7 @@ artifact:
       version: 2.3.232
 
     - groupId: org.scala-lang
-      artifactId: scala3-library
+      artifactId: scala3-library_3
       version: 3.5.0
 
     - groupId: org.jetbrains.kotlin
@@ -322,13 +322,17 @@ artifact:
       artifactId: log4j-slf4j-impl
       version: 2.23.1
 
-    - groupId: mysql
-      artifactId: mysql-connector-java
+    - groupId: com.mysql
+      artifactId: mysql-connector-j
       version: 8.0.33
 
-    - groupId: androidx.core
-      artifactId: core-ktx
-      version: 1.13.1
+# Android no jar available
+#    - groupId: androidx.core
+#      artifactId: core-ktx
+#      version: 1.13.1
+#      repository:
+#        id: google
+#        url: https://maven.google.com/
 
     - groupId: org.jetbrains.kotlinx
       artifactId: kotlinx-coroutines-core
@@ -364,7 +368,7 @@ artifact:
 
     - groupId: org.hamcrest
       artifactId: hamcrest-library
-      version: 	3.0
+      version: 3.0
 
     - groupId: javax.validation
       artifactId: validation-api
@@ -372,7 +376,7 @@ artifact:
 
     - groupId: org.junit.jupiter
       artifactId: junit-jupiter-params
-      version: 	5.11.0
+      version: 5.11.0
 
     - groupId: com.fasterxml.jackson.datatype
       artifactId: jackson-datatype-jsr310
@@ -388,11 +392,12 @@ artifact:
 
     - groupId: org.jetbrains.kotlinx
       artifactId: kotlinx-coroutines-core-jvm
-      version: 2.3.1
+      version: 1.8.1
 
-    - groupId: com.google.android.material
-      artifactId: material
-      version: 1.12.0
+# Android- no jar available
+#    - groupId: com.google.android.material
+#      artifactId: material
+#      version: 1.12.0
 
     - groupId: ch.qos.logback
       artifactId: logback-core
@@ -405,9 +410,13 @@ artifact:
     - groupId: clojure-complete
       artifactId: clojure-complete
       version: 0.2.5
+      repository:
+        id: clojars
+        url: https://repo.clojars.org/
+
 
     - groupId: org.scala-js
-      artifactId: scalajs-library
+      artifactId: scalajs-library_2.13
       version: 1.16.0
 
     - groupId: org.springframework

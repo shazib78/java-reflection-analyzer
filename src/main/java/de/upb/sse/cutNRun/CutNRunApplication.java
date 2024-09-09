@@ -42,19 +42,26 @@ public class CutNRunApplication implements CommandLineRunner {
     public void run(String... args) throws Exception {
 		/*methodExecutorPort.executeMethod("doNothing",
 										 "src/test/resources/jars/CutNRunTestJars.jar");*/
-        artifactDownloaderPort.download(artifactDetailList);
+        //TODO: Uucomment below
+        /*artifactDownloaderPort.download(artifactDetailList);
         for (ArtifactDetailList.ArtifactDetail artifactDetail : artifactDetailList.getDetails()) {
             String jarName = artifactDetail.getArtifactId() + "-" + artifactDetail.getVersion() + ".jar";
             String pathToBinary = jarResourcePath + jarName;
             //TODO: below resource check probably not working at runtime after file is downloaded
-            if(resourceLoader.getResource("jars/" + jarName).exists()){
+            if (resourceLoader.getResource("jars/" + jarName).exists()) {
                 View view = new JavaView(new JavaClassPathAnalysisInputLocation(pathToBinary));
                 programAnalyzerPort = new ProgramAnalyzerAdaptor(view);
                 log.info("Analyzing project = {}: {}", artifactDetail.getGroupId(), jarName);
                 programAnalyzerPort.analyze();
             } else {
                 log.error("jar {} not found", jarName);
+                throw new RuntimeException("jar " + jarName + " not found");
             }
-        }
+        }*/
+
+        //TODO: Remove - For testing
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/"));
+        programAnalyzerPort = new ProgramAnalyzerAdaptor(view);
+        programAnalyzerPort.analyze();
     }
 }

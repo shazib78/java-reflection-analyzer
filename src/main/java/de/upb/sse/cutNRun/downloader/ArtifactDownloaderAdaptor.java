@@ -57,7 +57,7 @@ public class ArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
     private File getMavenResolvedArtifact(ArtifactDetailList.ArtifactDetail artifactDetail){
         if(artifactDetail.getRepository() != null){
             return Maven.configureResolver().withMavenCentralRepo(false)
-                 .withRemoteRepo("bedatadriven","https://nexus.bedatadriven.com/content/groups/public/","default")
+                 .withRemoteRepo(artifactDetail.getRepository().getId(), artifactDetail.getRepository().getUrl(),"default")
                         .resolve(artifactDetail.getGroupId() + SEPARATOR
                                          + artifactDetail.getArtifactId() + SEPARATOR
                                          + artifactDetail.getVersion())
