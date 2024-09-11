@@ -5,5 +5,6 @@ public enum ArgumentSource {
     METHOD_PARAMETER,
     RETURN_FROM_METHOD,
     FIELD,
+    CONTRADICTING,
     UNKOWN
 }

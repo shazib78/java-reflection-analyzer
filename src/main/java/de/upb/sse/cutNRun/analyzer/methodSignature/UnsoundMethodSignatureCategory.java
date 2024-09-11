@@ -6,5 +6,6 @@ import java.util.List;
 
 public interface UnsoundMethodSignatureCategory {
     List<MethodSignature> getSignatures();
+
     boolean isSourceOfUnsoundness(MethodSignature methodSignature);
 }

@@ -18,21 +18,21 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
         this.view = view;
         /*MethodSignature invokeMethodSignature =  buildMethodSignature("java.lang.reflect.Method", "invoke",
                                                                       "java.lang.Object", Arrays.asList("java.lang.Object", "java.lang.Object[]"));*/
-        MethodSignature getMethodSignature =  buildMethodSignature("java.lang.Class", "getMethod",
-                                                                      "java.lang.reflect.Method", Arrays.asList("java.lang.String", "java.lang.Class[]"));
-        MethodSignature getDeclaredMethodMethodSignature =  buildMethodSignature("java.lang.Class", "getDeclaredMethod",
-                                                                      "java.lang.reflect.Method", Arrays.asList("java.lang.String", "java.lang.Class[]"));
-        MethodSignature newInstanceMethodSignature =  buildMethodSignature("java.lang.Class", "newInstance",
-                                                                           "java.lang.Object", Collections.emptyList());
-        MethodSignature newInstanceWithParameters =  buildMethodSignature("java.lang.reflect.Constructor", "newInstance",
-                                                                           "java.lang.Object", Arrays.asList("java.lang.Object[]"));
-        MethodSignature getDeclaredFieldSignature =  buildMethodSignature("java.lang.Class", "getDeclaredField",
-                                                                          "java.lang.reflect.Field", Arrays.asList("java.lang.String"));
-        MethodSignature getFieldSignature =  buildMethodSignature("java.lang.Class", "getField",
-                                                                          "java.lang.reflect.Field", Arrays.asList("java.lang.String"));
+        MethodSignature getMethodSignature = buildMethodSignature("java.lang.Class", "getMethod",
+                                                                  "java.lang.reflect.Method", Arrays.asList("java.lang.String", "java.lang.Class[]"));
+        MethodSignature getDeclaredMethodMethodSignature = buildMethodSignature("java.lang.Class", "getDeclaredMethod",
+                                                                                "java.lang.reflect.Method", Arrays.asList("java.lang.String", "java.lang.Class[]"));
+        MethodSignature newInstanceMethodSignature = buildMethodSignature("java.lang.Class", "newInstance",
+                                                                          "java.lang.Object", Collections.emptyList());
+        MethodSignature newInstanceWithParameters = buildMethodSignature("java.lang.reflect.Constructor", "newInstance",
+                                                                         "java.lang.Object", Arrays.asList("java.lang.Object[]"));
+        MethodSignature getDeclaredFieldSignature = buildMethodSignature("java.lang.Class", "getDeclaredField",
+                                                                         "java.lang.reflect.Field", Arrays.asList("java.lang.String"));
+        MethodSignature getFieldSignature = buildMethodSignature("java.lang.Class", "getField",
+                                                                 "java.lang.reflect.Field", Arrays.asList("java.lang.String"));
 
         this.methodSignatures = List.of(/*invokeMethodSignature,*/ newInstanceMethodSignature, newInstanceWithParameters,
-                                        getDeclaredFieldSignature, getFieldSignature, getMethodSignature, getDeclaredMethodMethodSignature);
+                                                                   getDeclaredFieldSignature, getFieldSignature, getMethodSignature, getDeclaredMethodMethodSignature);
     }
 
     private MethodSignature buildMethodSignature(String className, String methodName, String returnType, List<String> parameterType) {
@@ -43,7 +43,7 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
     }
 
     @Override
-    public List<MethodSignature> getSignatures(){
+    public List<MethodSignature> getSignatures() {
         /*ClassType classType = view.getIdentifierFactory().getClassType("java.lang.reflect.Method");
         MethodSignature invokeMethodSignature =  view.getIdentifierFactory()
                                                                             .getMethodSignature(classType, "invoke",

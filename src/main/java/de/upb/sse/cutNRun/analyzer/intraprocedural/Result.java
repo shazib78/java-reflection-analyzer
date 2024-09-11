@@ -2,14 +2,20 @@ package de.upb.sse.cutNRun.analyzer.intraprocedural;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+import sootup.java.core.jimple.basic.JavaLocal;
 
 import java.util.Objects;
 
 @Builder
 @AllArgsConstructor
-public class UnsoundStatementArgumentSource {
+@Getter
+@Setter
+public class Result {
     private int statementLineNumber;
     private ArgumentSource argumentSource;
+    private JavaLocal trackVariable;
 
     @Override
     public String toString() {
@@ -25,7 +31,7 @@ public class UnsoundStatementArgumentSource {
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-        UnsoundStatementArgumentSource that = (UnsoundStatementArgumentSource) o;
+        Result that = (Result) o;
         return statementLineNumber == that.statementLineNumber && argumentSource == that.argumentSource;
     }
 

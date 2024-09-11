@@ -29,13 +29,13 @@ public class ArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
 
     @Override
     public void download(ArtifactDetailList artifactDetailList) throws IOException {
-        for(ArtifactDetailList.ArtifactDetail artifactDetail : artifactDetailList.getDetails()) {
-            if(isArtifactNotDownloaded(artifactDetail)) {
+        for (ArtifactDetailList.ArtifactDetail artifactDetail : artifactDetailList.getDetails()) {
+            if (isArtifactNotDownloaded(artifactDetail)) {
                 log.info("Downloading jar: {}", artifactDetail.getArtifactId());
                 File file = getMavenResolvedArtifact(artifactDetail);
                 /*Maven.configureResolver().withMavenCentralRepo(false)
                                  .withRemoteRepo("bedatadriven","https://nexus.bedatadriven.com/content/groups/public/","default")*/
-                                 //.resolver()
+                //.resolver()
                                 /* .resolve(artifactDetail.getGroupId() + SEPARATOR
                                                   + artifactDetail.getArtifactId() + SEPARATOR
                                                   + artifactDetail.getVersion())
@@ -54,10 +54,10 @@ public class ArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
         return !resource.exists();
     }
 
-    private File getMavenResolvedArtifact(ArtifactDetailList.ArtifactDetail artifactDetail){
-        if(artifactDetail.getRepository() != null){
+    private File getMavenResolvedArtifact(ArtifactDetailList.ArtifactDetail artifactDetail) {
+        if (artifactDetail.getRepository() != null) {
             return Maven.configureResolver().withMavenCentralRepo(false)
-                 .withRemoteRepo(artifactDetail.getRepository().getId(), artifactDetail.getRepository().getUrl(),"default")
+                        .withRemoteRepo(artifactDetail.getRepository().getId(), artifactDetail.getRepository().getUrl(), "default")
                         .resolve(artifactDetail.getGroupId() + SEPARATOR
                                          + artifactDetail.getArtifactId() + SEPARATOR
                                          + artifactDetail.getVersion())

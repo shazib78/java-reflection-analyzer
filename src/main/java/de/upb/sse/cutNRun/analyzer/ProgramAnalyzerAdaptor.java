@@ -1,6 +1,9 @@
 package de.upb.sse.cutNRun.analyzer;
 
+import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSourceAnalysis;
+import de.upb.sse.cutNRun.analyzer.intraprocedural.Result;
+import de.upb.sse.cutNRun.analyzer.intraprocedural.StringConcatenationSource;
 import de.upb.sse.cutNRun.analyzer.methodSignature.ReflectionMethodSignature;
 import de.upb.sse.cutNRun.analyzer.methodSignature.UnsoundMethodSignatureCategory;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +21,8 @@ import sootup.core.views.View;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.UNKOWN;
 
 @Slf4j
 public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
@@ -49,7 +54,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                     log.debug("------------END--------------");
                     totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
                     unsoundStatements.stream()
-                            .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));
+                                     .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));
                 }
             }
             /*for(MethodSignature  : methodSignaturesToSearch)
@@ -63,9 +68,16 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
 
     private void performIntraProceduralAnalysis(SootMethod sootMethod, Stmt startStmt) {
         StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
-        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt);
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
         argumentSourceAnalysis.execute();
-        log.info("Argument Source: {} for Statement: {}", argumentSourceAnalysis.getArgumentSource(), startStmt);
+        Result result = argumentSourceAnalysis.getResult();
+        ArgumentSource argumentSource = result.getArgumentSource();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        if (argumentSource == UNKOWN && !stringConcatResult.isEmpty()) {
+            argumentSource = stringConcatResult.getSource();
+            log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
+        }
+        log.info("Argument Source: {} for Statement: {}", argumentSource, startStmt);
     }
 
     private boolean isSourceOfUnsoundness(Stmt statement) {
