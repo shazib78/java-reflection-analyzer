@@ -22,6 +22,7 @@ import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Set;
 
+import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.getJVirtualInvokeExpr;
 import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.INTRAPROCEDURAL;
 import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.UNKOWN;
 
@@ -85,23 +86,6 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                 }
             }
         }
-    }
-
-    private JVirtualInvokeExpr getJVirtualInvokeExpr(Stmt stmt) {
-        if (stmt instanceof JInvokeStmt) {
-            JInvokeStmt jInvokeStmt = (JInvokeStmt) stmt;
-            AbstractInvokeExpr abstractInvokeExpr = jInvokeStmt.getInvokeExpr().orElse(null);
-            if (abstractInvokeExpr instanceof JVirtualInvokeExpr) {
-                return (JVirtualInvokeExpr) abstractInvokeExpr;
-            }
-        } else if (stmt instanceof JAssignStmt) {
-            JAssignStmt jAssignStmt = (JAssignStmt) stmt;
-            Value rightOp = jAssignStmt.getRightOp();
-            if (rightOp instanceof JVirtualInvokeExpr) {
-                return (JVirtualInvokeExpr) rightOp;
-            }
-        }
-        return null;
     }
 
     @Nonnull

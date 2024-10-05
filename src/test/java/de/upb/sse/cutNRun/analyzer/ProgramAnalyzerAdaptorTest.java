@@ -10,6 +10,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class ProgramAnalyzerAdaptorTest {
 
     @Test
+    public void shouldAnalyzeSimpleReflectionCall() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/testFileSimple"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view);
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
     public void shouldAnalyzeTestFile1() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/testFile1"));
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view);
