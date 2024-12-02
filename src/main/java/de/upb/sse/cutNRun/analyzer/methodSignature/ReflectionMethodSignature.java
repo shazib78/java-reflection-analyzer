@@ -30,9 +30,11 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
                                                                          "java.lang.reflect.Field", Arrays.asList("java.lang.String"));
         MethodSignature getFieldSignature = buildMethodSignature("java.lang.Class", "getField",
                                                                  "java.lang.reflect.Field", Arrays.asList("java.lang.String"));
+        MethodSignature findStaticSignature = buildMethodSignature("java.lang.invoke.MethodHandles$Lookup", "findStatic",
+                                                                 "java.lang.invoke.MethodHandle", Arrays.asList("java.lang.Class","java.lang.String", "java.lang.invoke.MethodType"));
 
         this.methodSignatures = List.of(/*invokeMethodSignature,*/ newInstanceMethodSignature, newInstanceWithParameters,
-                                                                   getDeclaredFieldSignature, getFieldSignature, getMethodSignature, getDeclaredMethodMethodSignature);
+                                                                   getDeclaredFieldSignature, getFieldSignature, getMethodSignature, getDeclaredMethodMethodSignature/*, findStaticSignature*/);
     }
 
     private MethodSignature buildMethodSignature(String className, String methodName, String returnType, List<String> parameterType) {

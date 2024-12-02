@@ -60,6 +60,9 @@ artifact:
     #- groupId: com.android.support
     #  artifactId: appcompat-v7
     #  version: 28.0.0
+    #  repository:
+    #    id: google
+    #    url: https://maven.google.com/
 
     - groupId: javax.servlet
       artifactId: javax.servlet-api
@@ -125,6 +128,9 @@ artifact:
 #    - groupId: androidx.appcompat
 #      artifactId: appcompat
 #      version: 1.7.0
+    #  repository:
+    #    id: google
+    #    url: https://maven.google.com/
 
     - groupId: org.renjin
       artifactId: stats
@@ -398,6 +404,9 @@ artifact:
 #    - groupId: com.google.android.material
 #      artifactId: material
 #      version: 1.12.0
+    #  repository:
+    #    id: google
+    #    url: https://maven.google.com/
 
     - groupId: ch.qos.logback
       artifactId: logback-core

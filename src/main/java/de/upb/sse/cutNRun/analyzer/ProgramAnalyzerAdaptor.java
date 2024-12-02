@@ -5,6 +5,7 @@ import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSourceAnalysis;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.Result;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.StringConcatenationSource;
+import de.upb.sse.cutNRun.analyzer.methodSignature.ModernReflectionMethodSignature;
 import de.upb.sse.cutNRun.analyzer.methodSignature.ReflectionMethodSignature;
 import de.upb.sse.cutNRun.analyzer.methodSignature.UnsoundMethodSignatureCategory;
 import de.upb.sse.cutNRun.analyzer.soot.BackwardsInterproceduralCFG;
@@ -43,7 +44,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
 
     public ProgramAnalyzerAdaptor(View view) {
         this.view = view;
-        this.unsoundMethodSignatureCategories = List.of(new ReflectionMethodSignature(view));
+        this.unsoundMethodSignatureCategories = List.of(new ReflectionMethodSignature(view),
+                                                        new ModernReflectionMethodSignature(view));
     }
 
     @Override
@@ -51,8 +53,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         int totalSourcesOfUnsoundnessCount = 0;
         for (SootClass sootClass : view.getClasses().toList()) {
             for (SootMethod sootMethod : sootClass.getMethods()) {
-                //System.out.println("method: " + sootMethod.getSignature());
-                //System.out.println(sootMethod.getBody());
+                System.out.println("method: " + sootMethod.getSignature());
+                System.out.println(sootMethod.getBody());
                 List<Stmt> statements = sootMethod.hasBody() ? sootMethod.getBody().getStmts() : Collections.emptyList();
                 List<Stmt> unsoundStatements = statements.stream()
                                                          .filter(statement -> isSourceOfUnsoundness(statement))
@@ -67,8 +69,9 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                     totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
                     unsoundStatements.stream()
                                      .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));
-                    unsoundStatements.stream()
-                            .forEach(stmt -> performInterProceduralAnalysis(sootMethod, stmt));
+                    //TODO: uncomment for interprocedural Analysis
+                    /*unsoundStatements.stream()
+                            .forEach(stmt -> performInterProceduralAnalysis(sootMethod, stmt));*/
                 }
             }
             /*for(MethodSignature  : methodSignaturesToSearch)
@@ -91,7 +94,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         log.info("Starting inter-procedural analysis");
         log.info("Entry point:" +entryPointMethod.toString());
         final List<MethodSignature> entryPoints = Collections.singletonList(entryPointMethod.getSignature());
-        JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(view, entryPointMethod.getSignature(), false, true);
+        JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(view, entryPoints, false, true);
         BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg);
         /*
         //TODO: testing start

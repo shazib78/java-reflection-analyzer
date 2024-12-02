@@ -14,9 +14,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.core.io.ResourceLoader;
 import sootup.core.views.View;
-import sootup.java.bytecode.inputlocation.JavaClassPathAnalysisInputLocation;
+import sootup.java.bytecode.frontend.inputlocation.JavaClassPathAnalysisInputLocation;
 import sootup.java.core.views.JavaView;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 @SpringBootApplication
@@ -47,11 +49,12 @@ public class CutNRunApplication implements CommandLineRunner {
             String jarName = artifactDetail.getArtifactId() + "-" + artifactDetail.getVersion() + ".jar";
             String pathToBinary = jarResourcePath + jarName;
             //TODO: below resource check probably not working at runtime after file is downloaded
-            if (resourceLoader.getResource("jars/" + jarName).exists()) {
+            if (Files.exists(Path.of(pathToBinary))/*resourceLoader.getResource("jars/" + jarName).exists()*/) {
                 View view = new JavaView(new JavaClassPathAnalysisInputLocation(pathToBinary));
                 programAnalyzerPort = new ProgramAnalyzerAdaptor(view);
                 log.info("Analyzing project = {}: {}", artifactDetail.getGroupId(), jarName);
-                programAnalyzerPort.analyze();
+                //TODO: uncomment
+                //programAnalyzerPort.analyze();
             } else {
                 log.error("jar {} not found", jarName);
                 throw new RuntimeException("jar " + jarName + " not found");
