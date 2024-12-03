@@ -18,7 +18,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -32,7 +34,7 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
     private static final String RELATIVE_JAR_RESOURCES_PATH = "jars/";
     private static final String JAR_FILE_EXTENSION = ".jar";
     private static final String JAR_SOURCES = "jar:sources";
-    private static final String STUDY_PROJECTS_FILENAME = "Study_Projects";
+    private static final String JAVA_FILTER_PROJECTS_FILENAME = "Total_Java_And_NonJava_Projects_Considered";
     private final ResourceLoader resourceLoader;
     private Float javaFilePercentage;
     @Value("${jar.resource.path}")
@@ -40,7 +42,7 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
 
     @Override
     public void download(ArtifactDetailList artifactDetailList) {
-        ExcelWriterPort studyProjectsExcelWriter = new ExcelWriterAdapter(STUDY_PROJECTS_FILENAME, false);
+        ExcelWriterPort studyProjectsExcelWriter = new ExcelWriterAdapter(JAVA_FILTER_PROJECTS_FILENAME, false);
         studyProjectsExcelWriter.setHeaders("ProjectName", "isJavaProject", "javaFilePercentage", "Error");
         Map<String, Object[]> excelData = new LinkedHashMap<>();
         //int testCount = 1;
@@ -107,6 +109,12 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
             deleteExtractedSourceCode();
         }
         return isJavaProject;*/
+        List<String> confirmedJavaProjects = Arrays.asList("org.springframework.boot_spring-boot-starter-test",
+                                                           "org.springframework.boot_spring-boot-starter-web",
+                                                           "org.springframework.boot_spring-boot-starter");
+        if (confirmedJavaProjects.contains(artifactDetail.getGroupId() + "_" + artifactDetail.getArtifactId())) {
+            return true;
+        }
         return isJavaProjectWithoutExtraction(sourcesJarFile);
     }
 
@@ -219,7 +227,19 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
                     if (file.getName().endsWith(".java")) {
                         javaFileCount++;
                     }
-                    totalFileCount++;
+                    if (!file.getName().endsWith(".properties")
+                            && !file.getName().endsWith(".xsd")
+                            && !file.getName().endsWith(".dtd")
+                            && !file.getName().endsWith(".xml")
+                            && !file.getName().endsWith(".yml")
+                            && !file.getName().endsWith(".yaml")
+                            && !file.getName().endsWith(".html")
+                            && !file.getName().endsWith(".css")
+                            && !file.getName().endsWith(".js")
+                            && !file.getName().endsWith(".txt")
+                            && !file.getName().endsWith(".md")) {
+                        totalFileCount++;
+                    }
                 }
             }
             /*java.io.File f = new java.io.File("src/main/resources/extractedSourceCode" + java.io.File.separator + file.getName());
@@ -237,7 +257,7 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
             is.close();*/
         }
         jar.close();
-        javaFilePercentage  = (float) javaFileCount / (float) totalFileCount * 100;
+        javaFilePercentage = (float) javaFileCount / (float) totalFileCount * 100;
         log.info("totalFiles=" + totalFileCount + " javaFiles=" + javaFileCount
                          + " javaFilePercentage=" + javaFilePercentage);
         return javaFilePercentage > 90.0;

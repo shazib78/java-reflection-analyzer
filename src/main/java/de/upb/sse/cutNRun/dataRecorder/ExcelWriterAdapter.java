@@ -32,19 +32,19 @@ public class ExcelWriterAdapter implements ExcelWriterPort {
     @Override
     public void saveData(Map<String, Object[]> data) {
         if (isOverwriteFile || !Files.exists(filePath)) {
-            writeExcelFile(data);
+            writeExcelFile(data, true);
         } else {
             try {
                 Map<String, Object[]> oldData = readExcelData();
                 oldData.putAll(data);
-                writeExcelFile(data);
+                writeExcelFile(oldData, false);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
     }
 
-    private void writeExcelFile(Map<String, Object[]> data) {
+    private void writeExcelFile(Map<String, Object[]> data, boolean isCreateHeader) {
         //Blank workbook
         XSSFWorkbook workbook = new XSSFWorkbook();
 
@@ -58,8 +58,9 @@ public class ExcelWriterAdapter implements ExcelWriterPort {
         data.put("3", new Object[]{2, "Lokesh", "Gupta"});
         data.put("4", new Object[]{3, "John", "Adwards"});
         data.put("5", new Object[]{4, "Brian", "Schultz"});*/
-
-        createHeaderRow(sheet);
+        if(isCreateHeader) {
+            createHeaderRow(sheet);
+        }
 
         //Iterate over data and write to sheet
         Set<String> keyset = data.keySet();
@@ -71,10 +72,11 @@ public class ExcelWriterAdapter implements ExcelWriterPort {
             int cellnum = 0;
             for (Object obj : objArr) {
                 Cell cell = row.createCell(cellnum++);
-                if (obj instanceof String)
+                /*if (obj instanceof String)
                     cell.setCellValue((String) obj);
                 else if (obj instanceof Integer)
-                    cell.setCellValue((Integer) obj);
+                    cell.setCellValue((Integer) obj);*/
+                cell.setCellValue(String.valueOf(obj));
             }
         }
 
@@ -135,5 +137,18 @@ public class ExcelWriterAdapter implements ExcelWriterPort {
         }
         file.close();
         return data;
+    }
+
+    public Path getFilePath() {
+        return filePath;
+    }
+
+    @Override
+    public boolean isJarWritten(String jarName) throws IOException {
+        if(Files.exists(filePath)){
+            Map<String, Object[]> oldData = readExcelData();
+            return oldData.keySet().contains(jarName);
+        }
+        return false;
     }
 }

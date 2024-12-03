@@ -9,6 +9,8 @@ import de.upb.sse.cutNRun.analyzer.methodSignature.ModernReflectionMethodSignatu
 import de.upb.sse.cutNRun.analyzer.methodSignature.ReflectionMethodSignature;
 import de.upb.sse.cutNRun.analyzer.methodSignature.UnsoundMethodSignatureCategory;
 import de.upb.sse.cutNRun.analyzer.soot.BackwardsInterproceduralCFG;
+import de.upb.sse.cutNRun.dataRecorder.ExcelWriterAdapter;
+import de.upb.sse.cutNRun.dataRecorder.ExcelWriterPort;
 import heros.InterproceduralCFG;
 import lombok.extern.slf4j.Slf4j;
 import sootup.analysis.interprocedural.icfg.JimpleBasedInterproceduralCFG;
@@ -24,15 +26,10 @@ import sootup.core.jimple.common.stmt.Stmt;
 import sootup.core.model.SootClass;
 import sootup.core.model.SootMethod;
 import sootup.core.signatures.MethodSignature;
-import sootup.core.types.ClassType;
 import sootup.core.views.View;
-import sootup.java.core.JavaSootClass;
 import sootup.java.core.views.JavaView;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.UNKOWN;
@@ -41,46 +38,95 @@ import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.UNKOWN;
 public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
     private View view;
     private List<UnsoundMethodSignatureCategory> unsoundMethodSignatureCategories;
+    private String jarName;
 
-    public ProgramAnalyzerAdaptor(View view) {
+    public ProgramAnalyzerAdaptor(View view, String jarName) {
         this.view = view;
         this.unsoundMethodSignatureCategories = List.of(new ReflectionMethodSignature(view),
                                                         new ModernReflectionMethodSignature(view));
+        this.jarName = jarName;
     }
 
     @Override
     public void analyze() {
-        int totalSourcesOfUnsoundnessCount = 0;
-        for (SootClass sootClass : view.getClasses().toList()) {
-            for (SootMethod sootMethod : sootClass.getMethods()) {
-                System.out.println("method: " + sootMethod.getSignature());
-                System.out.println(sootMethod.getBody());
-                List<Stmt> statements = sootMethod.hasBody() ? sootMethod.getBody().getStmts() : Collections.emptyList();
-                List<Stmt> unsoundStatements = statements.stream()
-                                                         .filter(statement -> isSourceOfUnsoundness(statement))
-                                                         .collect(Collectors.toList());
-                if (!unsoundStatements.isEmpty()) {
-                    log.debug("------------START--------------");
-                    log.debug("method: " + sootMethod.getSignature());
-                    log.debug("Sources of Unsoundness - Statements:");
-                    unsoundStatements.stream().forEach(stmt -> log.debug(stmt.toString()));
-                    log.debug("Sources of Unsoundness - Count: " + unsoundStatements.size());
-                    log.debug("------------END--------------");
-                    totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
-                    unsoundStatements.stream()
-                                     .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));
-                    //TODO: uncomment for interprocedural Analysis
-                    /*unsoundStatements.stream()
-                            .forEach(stmt -> performInterProceduralAnalysis(sootMethod, stmt));*/
+        ExcelWriterPort excelWriter = new ExcelWriterAdapter("SourcesOfUnsoundnessCount", false);
+        excelWriter.setHeaders("ProjectName", "totalTraditionalReflection", "totalModernReflection",
+                               "totalSourcesOfUnsoundness", "isError", "errorMessage",
+                               "traditionalReflection-METHOD", "traditionalReflection-NEW-INSTANCE", "traditionalReflection-FIELD", "totalTraditionalReflection",
+                               "modernReflection-METHOD", "modernReflection-NEW-INSTANCE", "modernReflection-FIELD", "totalModernReflection");
+        Map<String, Object[]> excelData = new LinkedHashMap<>();
+        try {
+            if (!excelWriter.isJarWritten(jarName)) {
+                int totalSourcesOfUnsoundnessCount = 0;
+                for (SootClass sootClass : view.getClasses().toList()) {
+                    for (SootMethod sootMethod : sootClass.getMethods()) {
+                        System.out.println("method: " + sootMethod.getSignature());
+                        List<Stmt> statements = sootMethod.hasBody() ? sootMethod.getBody().getStmts() : Collections.emptyList();
+                        //System.out.println("method Statements:" + statements);
+                        List<Stmt> unsoundStatements = statements.stream()
+                                                                 .filter(statement -> isSourceOfUnsoundness(statement))
+                                                                 .collect(Collectors.toList());
+                        if (!unsoundStatements.isEmpty()) {
+                            log.debug("------------START--------------");
+                            log.debug("method: " + sootMethod.getSignature());
+                            log.debug("Sources of Unsoundness - Statements:");
+                            unsoundStatements.stream().forEach(stmt -> log.debug(stmt.toString()));
+                            log.debug("Sources of Unsoundness - Count: " + unsoundStatements.size());
+                            log.debug("------------END--------------");
+                            totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
+                            //TODO: uncomment for intraprocedural Analysis
+                            /*unsoundStatements.stream()
+                                             .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));*/
+                            //TODO: uncomment for interprocedural Analysis
+                            /*unsoundStatements.stream()
+                                    .forEach(stmt -> performInterProceduralAnalysis(sootMethod, stmt));*/
+                        }
+                    }
+                    /*for(MethodSignature  : methodSignaturesToSearch)
+                    if (!sootClass.getMethod(methodSignature.getSubSignature()).isPresent()) {
+                        System.out.println("Method not found!");
+                        return;  // Exit if the method is not found
+                    }*/
                 }
+                log.info("Sources of Unsoundness - Total Count: " + totalSourcesOfUnsoundnessCount);
+                setExcelData(excelData, totalSourcesOfUnsoundnessCount);
             }
-            /*for(MethodSignature  : methodSignaturesToSearch)
-            if (!sootClass.getMethod(methodSignature.getSubSignature()).isPresent()) {
-                System.out.println("Method not found!");
-                return;  // Exit if the method is not found
-            }*/
+        } catch (Exception e) {
+            e.printStackTrace();
+            excelData.put(jarName, new Object[]{jarName, "", "", "", "ERROR", e.getMessage(), "", "", "", ""});
+        } finally {
+            excelWriter.saveData(excelData);
         }
-        log.info("Sources of Unsoundness - Total Count: " + totalSourcesOfUnsoundnessCount);
+    }
+
+    private void setExcelData(Map<String, Object[]> excelData, int totalSourcesOfUnsoundnessCount) {
+        int totalTraditionalReflectionCount = 0;
+        int traditionalReflectionMethodCount = 0;
+        int traditionalReflectionFieldCount = 0;
+        int traditionalReflectionNewInstanceCount = 0;
+        int totalModernReflectionCount = 0;
+        int modernReflectionMethodCount = 0;
+        int modernReflectionFieldCount = 0;
+        int modernReflectionNewInstanceCount = 0;
+        for(UnsoundMethodSignatureCategory unsoundMethodSignatureCategory : unsoundMethodSignatureCategories){
+            if(unsoundMethodSignatureCategory instanceof ReflectionMethodSignature){
+                ReflectionMethodSignature traditionalReflection = (ReflectionMethodSignature) unsoundMethodSignatureCategory;
+                totalTraditionalReflectionCount = traditionalReflection.getTotalReflectionCount();
+                traditionalReflectionMethodCount = traditionalReflection.getMethodReflectionCount();
+                traditionalReflectionFieldCount = traditionalReflection.getFieldReflectionCount();
+                traditionalReflectionNewInstanceCount = traditionalReflection.getNewInstanceReflectionCount();
+            } else {
+                ModernReflectionMethodSignature modernReflection = (ModernReflectionMethodSignature) unsoundMethodSignatureCategory;
+                totalModernReflectionCount = unsoundMethodSignatureCategory.getTotalReflectionCount();
+                modernReflectionMethodCount = modernReflection.getMethodReflectionCount();
+                modernReflectionFieldCount = modernReflection.getFieldReflectionCount();
+                modernReflectionNewInstanceCount = modernReflection.getNewInstanceReflectionCount();
+            }
+        }
+        excelData.put(jarName, new Object[]{jarName, totalTraditionalReflectionCount, totalModernReflectionCount,
+                String.valueOf(totalSourcesOfUnsoundnessCount), "", "",
+                traditionalReflectionMethodCount, traditionalReflectionNewInstanceCount, traditionalReflectionFieldCount, totalTraditionalReflectionCount,
+                modernReflectionMethodCount, modernReflectionNewInstanceCount, modernReflectionFieldCount, totalModernReflectionCount});
     }
 
     private void performInterProceduralAnalysis(SootMethod entryPointMethod, Stmt startStmt) {
@@ -92,7 +138,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         //entryPointMethod = aClass.get().getMethods().stream().filter(SootMethod::hasBody).filter(ms -> ms.getName().equals("entryPoint")).findAny().get();
         log.info("----------------------------------------");
         log.info("Starting inter-procedural analysis");
-        log.info("Entry point:" +entryPointMethod.toString());
+        log.info("Entry point:" + entryPointMethod.toString());
         final List<MethodSignature> entryPoints = Collections.singletonList(entryPointMethod.getSignature());
         JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(view, entryPoints, false, true);
         BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg);

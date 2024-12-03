@@ -37,7 +37,17 @@ public class SourceCodeFileVisitor extends SimpleFileVisitor<Path> {
         if (file.getFileName().toString().endsWith(".java")) {
             javaFileCount++;
         }
-        totalFileCount++;
+        if(!file.getFileName().toString().endsWith(".properties")
+                && !file.getFileName().toString().endsWith(".xsd")
+                && !file.getFileName().toString().endsWith(".dtd")
+                && !file.getFileName().toString().endsWith(".xml")
+                && !file.getFileName().toString().endsWith(".yml")
+                && !file.getFileName().toString().endsWith(".yaml")
+                && !file.getFileName().toString().endsWith(".html")
+                && !file.getFileName().toString().endsWith(".css")
+                && !file.getFileName().toString().endsWith(".js")) {
+            totalFileCount++;
+        }
         return FileVisitResult.CONTINUE;
     }
 }

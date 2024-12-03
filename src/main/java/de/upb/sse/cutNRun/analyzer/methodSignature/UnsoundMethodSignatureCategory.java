@@ -8,4 +8,6 @@ public interface UnsoundMethodSignatureCategory {
     List<MethodSignature> getSignatures();
 
     boolean isSourceOfUnsoundness(MethodSignature methodSignature);
+
+    int getTotalReflectionCount();
 }

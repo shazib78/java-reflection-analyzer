@@ -15,19 +15,19 @@ class JavaArtifactDownloaderAdaptorTest {
 
     @Test
     public void dowloadTest() throws IOException {
-        /*File file = Maven.resolver().resolve("com.squareup.okhttp3" + ":"
-                                                     + "okhttp" + ":jar:sources:"
-                                                     + "4.12.0")
+        File file = Maven.resolver().resolve("commons-codec" + ":"
+                                                     + "commons-codec" + ":jar:sources:"
+                                                     + "1.17.1")
                          .withoutTransitivity()
-                         .asSingleFile();*/
+                         .asSingleFile();
 
-        File file = Maven.configureResolver().withMavenCentralRepo(false)
+        /*File file = Maven.configureResolver().withMavenCentralRepo(false)
                             .withRemoteRepo("google", "https://maven.google.com/", "default")
                          .resolve("androidx.appcompat" + ":"
                                           + "appcompat" + ":jar:sources:"
                                           + "1.7.0")
                          .withoutTransitivity()
-                         .asSingleFile();
+                         .asSingleFile();*/
         System.out.println(file);
 
         try {
@@ -143,7 +143,19 @@ class JavaArtifactDownloaderAdaptorTest {
             if (file.getFileName().toString().endsWith(".java")) {
                 javaFileCount++;
             }
-            totalFileCount++;
+            if(!file.getFileName().toString().endsWith(".properties")
+                    && !file.getFileName().toString().endsWith(".xsd")
+                    && !file.getFileName().toString().endsWith(".dtd")
+                    && !file.getFileName().toString().endsWith(".xml")
+                    && !file.getFileName().toString().endsWith(".yml")
+                    && !file.getFileName().toString().endsWith(".yaml")
+                    && !file.getFileName().toString().endsWith(".html")
+                    && !file.getFileName().toString().endsWith(".css")
+                    && !file.getFileName().toString().endsWith(".js")
+                    && !file.getFileName().toString().endsWith(".txt")
+                    && !file.getFileName().toString().endsWith(".md")) {
+                totalFileCount++;
+            }
             return FileVisitResult.CONTINUE;
         }
     }
