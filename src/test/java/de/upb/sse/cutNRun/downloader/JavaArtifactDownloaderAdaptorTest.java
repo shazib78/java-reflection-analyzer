@@ -15,9 +15,9 @@ class JavaArtifactDownloaderAdaptorTest {
 
     @Test
     public void dowloadTest() throws IOException {
-        File file = Maven.resolver().resolve("commons-codec" + ":"
-                                                     + "commons-codec" + ":jar:sources:"
-                                                     + "1.17.1")
+        File file = Maven.resolver().resolve("org.mockito" + ":"
+                                                     + "mockito-junit-jupiter" + ":jar:sources:"
+                                                     + "5.14.2")
                          .withoutTransitivity()
                          .asSingleFile();
 
@@ -153,7 +153,8 @@ class JavaArtifactDownloaderAdaptorTest {
                     && !file.getFileName().toString().endsWith(".css")
                     && !file.getFileName().toString().endsWith(".js")
                     && !file.getFileName().toString().endsWith(".txt")
-                    && !file.getFileName().toString().endsWith(".md")) {
+                    && !file.getFileName().toString().endsWith(".md")
+                    && !file.getFileName().toString().equals("LICENSE")) {
                 totalFileCount++;
             }
             return FileVisitResult.CONTINUE;

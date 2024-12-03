@@ -111,7 +111,8 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
         return isJavaProject;*/
         List<String> confirmedJavaProjects = Arrays.asList("org.springframework.boot_spring-boot-starter-test",
                                                            "org.springframework.boot_spring-boot-starter-web",
-                                                           "org.springframework.boot_spring-boot-starter");
+                                                           "org.springframework.boot_spring-boot-starter",
+                                                           "org.springframework.boot_spring-boot-starter-actuator");
         if (confirmedJavaProjects.contains(artifactDetail.getGroupId() + "_" + artifactDetail.getArtifactId())) {
             return true;
         }
@@ -237,7 +238,8 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
                             && !file.getName().endsWith(".css")
                             && !file.getName().endsWith(".js")
                             && !file.getName().endsWith(".txt")
-                            && !file.getName().endsWith(".md")) {
+                            && !file.getName().endsWith(".md")
+                            && !file.getName().equals("LICENSE")) {
                         totalFileCount++;
                     }
                 }

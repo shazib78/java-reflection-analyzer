@@ -46,7 +46,7 @@ public class CutNRunApplication implements CommandLineRunner {
 		/*methodExecutorPort.executeMethod("doNothing",
 										 "src/test/resources/jars/CutNRunTestJars.jar");*/
         //TODO: uncomment to download jars
-        //artifactDownloaderPort.download(artifactDetailList);
+        artifactDownloaderPort.download(artifactDetailList);
         for (ArtifactDetailList.ArtifactDetail artifactDetail : artifactDetailList.getDetails()) {
             String jarName = artifactDetail.getArtifactId() + "-" + artifactDetail.getVersion() + ".jar";
             String pathToBinary = jarResourcePath + jarName;
@@ -58,7 +58,7 @@ public class CutNRunApplication implements CommandLineRunner {
                 /*if(test<=15) {
                     programAnalyzerPort.analyze();
                 }*/
-                programAnalyzerPort.analyze();
+                //programAnalyzerPort.analyze();
             } else {
                 log.error("jar {} not found", jarName);
                 //throw new RuntimeException("jar " + jarName + " not found");
