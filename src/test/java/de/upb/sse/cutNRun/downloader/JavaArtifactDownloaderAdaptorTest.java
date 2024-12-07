@@ -15,9 +15,9 @@ class JavaArtifactDownloaderAdaptorTest {
 
     @Test
     public void dowloadTest() throws IOException {
-        File file = Maven.resolver().resolve("org.mockito" + ":"
-                                                     + "mockito-junit-jupiter" + ":jar:sources:"
-                                                     + "5.14.2")
+        File file = Maven.resolver().resolve("io.netty" + ":"
+                                                     + "netty-all" + ":jar:sources:"
+                                                     + "4.1.115.Final")
                          .withoutTransitivity()
                          .asSingleFile();
 

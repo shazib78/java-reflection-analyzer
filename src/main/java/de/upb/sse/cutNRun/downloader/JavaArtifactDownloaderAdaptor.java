@@ -100,7 +100,7 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
     }
 
     private boolean isJavaProject(ArtifactDetailList.ArtifactDetail artifactDetail) throws IOException {
-        File sourcesJarFile = getSourcesJar(artifactDetail);
+        //File sourcesJarFile = getSourcesJar(artifactDetail);
         /*boolean isJavaProject = false;
         try {
             extractJar(sourcesJarFile);
@@ -112,10 +112,14 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
         List<String> confirmedJavaProjects = Arrays.asList("org.springframework.boot_spring-boot-starter-test",
                                                            "org.springframework.boot_spring-boot-starter-web",
                                                            "org.springframework.boot_spring-boot-starter",
-                                                           "org.springframework.boot_spring-boot-starter-actuator");
+                                                           "org.springframework.boot_spring-boot-starter-actuator",
+                                                           "org.springframework.boot_spring-boot-starter-aop",
+                                                           "com.zaxxer_HikariCP",
+                                                           "io.netty_netty-all");
         if (confirmedJavaProjects.contains(artifactDetail.getGroupId() + "_" + artifactDetail.getArtifactId())) {
             return true;
         }
+        File sourcesJarFile = getSourcesJar(artifactDetail);
         return isJavaProjectWithoutExtraction(sourcesJarFile);
     }
 
