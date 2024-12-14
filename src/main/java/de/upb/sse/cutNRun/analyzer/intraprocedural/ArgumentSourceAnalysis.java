@@ -2,17 +2,21 @@ package de.upb.sse.cutNRun.analyzer.intraprocedural;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import sootup.analysis.intraprocedural.BackwardFlowAnalysis;
 import sootup.core.graph.BasicBlock;
 import sootup.core.graph.StmtGraph;
 import sootup.core.jimple.basic.Immediate;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.constant.StringConstant;
-import sootup.core.jimple.common.expr.AbstractInvokeExpr;
+import sootup.core.jimple.common.expr.AbstractInstanceInvokeExpr;
 import sootup.core.jimple.common.expr.JDynamicInvokeExpr;
+import sootup.core.jimple.common.expr.JStaticInvokeExpr;
 import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
+import sootup.core.jimple.common.ref.JFieldRef;
+import sootup.core.jimple.common.ref.JParameterRef;
 import sootup.core.jimple.common.stmt.JAssignStmt;
-import sootup.core.jimple.common.stmt.JInvokeStmt;
+import sootup.core.jimple.common.stmt.JIdentityStmt;
 import sootup.core.jimple.common.stmt.Stmt;
 import sootup.core.model.LinePosition;
 import sootup.core.views.View;
@@ -20,11 +24,11 @@ import sootup.java.core.jimple.basic.JavaLocal;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.getJVirtualInvokeExpr;
-import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.INTRAPROCEDURAL;
-import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.UNKOWN;
+import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.*;
 
 @Slf4j
 public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
@@ -60,13 +64,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                 JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
                 Immediate argument = jVirtualInvokeExpr.getArg(0);
                 if (argument instanceof StringConstant) {
-                    LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
-                    result.setStatementLineNumber(linePosition.getFirstLine());
-                    result.setArgumentSource(INTRAPROCEDURAL);
-                    out.add(Result.builder()
-                                  .statementLineNumber(linePosition.getFirstLine())
-                                  .argumentSource(INTRAPROCEDURAL)
-                                  .build());
+                    setResultArgumentSource(LOCAL, stmt, out);
                 } else if (argument instanceof JavaLocal) {
                     result.setTrackVariable((JavaLocal) argument);
                 }
@@ -74,18 +72,80 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                 JAssignStmt jAssignStmt = (JAssignStmt) stmt;
                 Value leftOp = jAssignStmt.getLeftOp();
                 Value rightOp = jAssignStmt.getRightOp();
-                //To handle aliases and string concatenation
-                if (leftOp.equivTo(result.getTrackVariable())) {
+                List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                //To handle aliases, string concatenation, method return value source
+                if (leftOp.equivTo(result.getTrackVariable()) ||
+                        (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))) {
                     if (rightOp instanceof JavaLocal) {
                         result.setTrackVariable((JavaLocal) rightOp);
                     } else if (rightOp instanceof JDynamicInvokeExpr) {
-                        StringConcatenationProcessor stringConcatenationProcessor = new StringConcatenationProcessor(view, result, out, stmt,
-                                                                                                                     stringConcatenationSource);
+                        StringConcatenationProcessor stringConcatenationProcessor =
+                                new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
                         stringConcatenationProcessor.process(rightOp);
+                    } else if ((rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr)
+                            && stringConcatenationSource.isEmpty()) {
+                        setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
+                    } else if (rightOp instanceof JFieldRef && stringConcatenationSource.isEmpty()) {
+                        setResultArgumentSource(FIELD, stmt, out);
+                    } else if (rightOp instanceof StringConstant && stringConcatenationSource.isEmpty()) {
+                        setResultArgumentSource(LOCAL, stmt, out);
+                    } else if (!stringConcatenationSource.isEmpty()){
+                        updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                    }
+                }
+            } else if (stmt instanceof JIdentityStmt) {
+                JIdentityStmt jIdentityStmt = (JIdentityStmt) stmt;
+                Value leftOp = jIdentityStmt.getLeftOp();
+                Value rightOp = jIdentityStmt.getRightOp();
+                List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                if (leftOp.equivTo(result.getTrackVariable()) ||
+                        (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))) {
+                    if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
+                        setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                    }  else if (!stringConcatenationSource.isEmpty()){
+                        updateStringConcatenationSource(leftOp, rightOp, stmt, out);
                     }
                 }
             }
         }
+    }
+
+    private void updateStringConcatenationSource(Value leftOp, Value rightOp, Stmt stmt, Set<Result> out) {
+
+        if (rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr) {
+            setStringConcatenationArgumentSource(RETURN_FROM_METHOD, leftOp, stmt, out);
+        } else if (rightOp instanceof JFieldRef) {
+            setStringConcatenationArgumentSource(FIELD, leftOp, stmt, out);
+        } else if(rightOp instanceof JParameterRef){
+            setStringConcatenationArgumentSource(METHOD_PARAMETER, leftOp, stmt, out);
+        }  else if(rightOp instanceof StringConstant){
+            setStringConcatenationArgumentSource(LOCAL, leftOp, stmt, out);
+        }
+    }
+
+    private void setStringConcatenationArgumentSource(ArgumentSource argumentSource, Value leftOp, Stmt stmt, Set<Result> out) {
+        stringConcatenationSource.getArgumentSources().add(argumentSource);
+        if (!CollectionUtils.isEmpty(stringConcatenationSource.getNextVariablesToTrack())) {
+            List<JavaLocal> nextVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            //result.setTrackVariable(nextVariablesToTrack.get(0));
+            stringConcatenationSource.getNextVariablesToTrack().remove(leftOp/*result.getTrackVariable()*/);
+        }
+        //
+        LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+        out.add(Result.builder()
+                      .statementLineNumber(linePosition.getFirstLine())
+                      .argumentSource(argumentSource)
+                      .build());
+    }
+
+    private void setResultArgumentSource(ArgumentSource argumentSource, Stmt stmt, Set<Result> out) {
+        LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+        result.setStatementLineNumber(linePosition.getFirstLine());
+        result.setArgumentSource(argumentSource);
+        out.add(Result.builder()
+                      .statementLineNumber(linePosition.getFirstLine())
+                      .argumentSource(argumentSource)
+                      .build());
     }
 
     @Nonnull
@@ -96,15 +156,22 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
 
     @Override
     protected void merge(@Nonnull Set<Result> in1, @Nonnull Set<Result> in2, @Nonnull Set<Result> out) {
-        if (in1.size() > 1 || in2.size() > 1) {
+        /*if (in1.size() > 1 || in2.size() > 1) {
             throw new RuntimeException("Unexpected");
-        } else if (in1.isEmpty() && !in2.isEmpty()) {
+        } else*/ if (in1.isEmpty() && !in2.isEmpty()) {
             out.addAll(in2);
         } else if (!in1.isEmpty() && in2.isEmpty()) {
             out.addAll(in1);
         } else if (!in1.isEmpty() && !in2.isEmpty()) {
             if (in1.equals(in2)) {
                 out.addAll(in1);
+            } else {
+                out.addAll(in1);
+                for(Result result : in2){
+                    if(!out.contains(result)){
+                        out.add(result);
+                    }
+                }
             }
         }
     }

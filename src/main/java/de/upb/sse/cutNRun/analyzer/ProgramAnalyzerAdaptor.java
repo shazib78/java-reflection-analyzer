@@ -75,8 +75,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                             log.debug("------------END--------------");
                             totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
                             //TODO: uncomment for intraprocedural Analysis
-                            /*unsoundStatements.stream()
-                                             .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));*/
+                            unsoundStatements.stream()
+                                             .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));
                             //TODO: uncomment for interprocedural Analysis
                             /*unsoundStatements.stream()
                                     .forEach(stmt -> performInterProceduralAnalysis(sootMethod, stmt));*/
@@ -95,7 +95,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
             e.printStackTrace();
             excelData.put(jarName, new Object[]{jarName, "", "", "", "ERROR", e.getMessage(), "", "", "", ""});
         } finally {
-            excelWriter.saveData(excelData);
+            //TODO: uncomment for RQ1
+            //excelWriter.saveData(excelData);
         }
     }
 
@@ -175,10 +176,14 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         ArgumentSource argumentSource = result.getArgumentSource();
         StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
         if (argumentSource == UNKOWN && !stringConcatResult.isEmpty()) {
-            argumentSource = stringConcatResult.getSource();
             log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
+            log.info("Argument Source: {} for Statement: {}", stringConcatResult.getSource(), startStmt);
+            log.info("isSingleSource: {} sourceCount: {} allSources: {}", stringConcatResult.isEveryStringFromSameSource(),
+                     stringConcatResult.getArgumentSources().size(), stringConcatResult.getArgumentSources());
+        } else {
+            log.info("Argument Source: {} for Statement: {}", argumentSource, startStmt);
+            log.info("isSingleSource: {} sourceCount: {} allSources: {}", true, 1, argumentSource);
         }
-        log.info("Argument Source: {} for Statement: {}", argumentSource, startStmt);
     }
 
     private boolean isSourceOfUnsoundness(Stmt statement) {

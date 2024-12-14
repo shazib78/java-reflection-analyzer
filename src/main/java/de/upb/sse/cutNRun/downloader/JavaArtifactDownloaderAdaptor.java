@@ -115,7 +115,10 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
                                                            "org.springframework.boot_spring-boot-starter-actuator",
                                                            "org.springframework.boot_spring-boot-starter-aop",
                                                            "com.zaxxer_HikariCP",
-                                                           "io.netty_netty-all");
+                                                           "io.netty_netty-all",
+                                                           "org.springframework.boot_spring-boot-starter-data-jpa",
+                                                           "io.rest-assured_rest-assured",
+                                                           "org.springframework.boot_spring-boot-starter-validation");
         if (confirmedJavaProjects.contains(artifactDetail.getGroupId() + "_" + artifactDetail.getArtifactId())) {
             return true;
         }

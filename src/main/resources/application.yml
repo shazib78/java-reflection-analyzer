@@ -752,3 +752,83 @@ artifact:
     - groupId: org.scala-js
       artifactId: scalajs-test-bridge
       version: 1.17.0
+
+    - groupId: com.google.auto.service
+      artifactId: auto-service
+      version: 1.1.1
+
+    - groupId: org.springframework
+      artifactId: spring-orm
+      version: 6.2.0
+
+    - groupId: org.apache.poi
+      artifactId: poi-ooxml
+      version: 5.3.0
+
+    - groupId: org.apache.commons
+      artifactId: commons-math3
+      version: 3.6.1
+
+    - groupId: org.springframework.boot
+      artifactId: spring-boot-starter-data-jpa
+      version: 3.4.0
+
+    - groupId: com.fasterxml.jackson.datatype
+      artifactId: jackson-datatype-jdk8
+      version: 2.18.2
+
+    - groupId: io.rest-assured
+      artifactId: rest-assured
+      version: 5.5.0
+
+    - groupId: dom4j
+      artifactId: dom4j
+      version: 1.6.1
+
+    - groupId: javax.enterprise
+      artifactId: cdi-api
+      version: 2.0
+
+    - groupId: org.slf4j
+      artifactId: slf4j-jdk14
+      version: 2.0.16
+
+    - groupId: org.codehaus.groovy
+      artifactId: groovy
+      version: 3.0.23
+
+    - groupId: com.fasterxml.jackson.module
+      artifactId: jackson-module-kotlin
+      version: 2.18.2
+
+    - groupId: org.typelevel
+      artifactId: cats-core
+      version: 2.12.0
+
+    - groupId: org.glassfish.jaxb
+      artifactId: jaxb-runtime
+      version: 4.0.5
+
+    - groupId: org.apache.maven
+      artifactId: maven-artifact
+      version: 3.9.9
+
+    - groupId: org.codehaus.jackson
+      artifactId: jackson-core-asl
+      version: 1.9.13
+
+    - groupId: org.eclipse.jetty
+      artifactId: jetty-servlet
+      version: 11.0.24
+
+    - groupId: org.junit.platform
+      artifactId: junit-platform-launcher
+      version: 1.11.3
+
+    - groupId: org.jetbrains.kotlin
+      artifactId: kotlin-test
+      version: 2.1.0
+
+    - groupId: org.springframework.boot
+      artifactId: spring-boot-starter-validation
+      version: 3.4.0

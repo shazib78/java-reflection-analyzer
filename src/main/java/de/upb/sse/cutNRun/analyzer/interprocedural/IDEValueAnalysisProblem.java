@@ -1,38 +1,27 @@
 package de.upb.sse.cutNRun.analyzer.interprocedural;
 
-import de.upb.sse.cutNRun.analyzer.intraprocedural.Result;
 import heros.*;
 import heros.edgefunc.AllBottom;
 import heros.edgefunc.AllTop;
 import heros.edgefunc.EdgeIdentity;
 import heros.flowfunc.Gen;
 import heros.flowfunc.Identity;
-import heros.flowfunc.KillAll;
 import lombok.extern.slf4j.Slf4j;
 import sootup.analysis.interprocedural.ide.DefaultJimpleIDETabulationProblem;
 import sootup.core.jimple.basic.Immediate;
 import sootup.core.jimple.basic.Local;
-import sootup.core.jimple.basic.Value;
-import sootup.core.jimple.common.constant.IntConstant;
 import sootup.core.jimple.common.constant.StringConstant;
-import sootup.core.jimple.common.expr.AbstractBinopExpr;
-import sootup.core.jimple.common.expr.AbstractInvokeExpr;
 import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
-import sootup.core.jimple.common.stmt.AbstractDefinitionStmt;
-import sootup.core.jimple.common.stmt.JReturnStmt;
 import sootup.core.jimple.common.stmt.Stmt;
-import sootup.core.model.LinePosition;
 import sootup.core.model.SootMethod;
 import sootup.core.signatures.MethodSignature;
 import sootup.core.types.NullType;
 import sootup.java.core.language.JavaJimple;
-import sootup.java.core.types.JavaClassType;
 import sootup.java.core.views.JavaView;
 
 import java.util.*;
 
 import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.getJVirtualInvokeExpr;
-import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.INTRAPROCEDURAL;
 
 @Slf4j
 public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<Local, String, InterproceduralCFG<Stmt, SootMethod>> {

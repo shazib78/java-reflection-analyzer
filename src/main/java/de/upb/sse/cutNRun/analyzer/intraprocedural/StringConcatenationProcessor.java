@@ -16,14 +16,14 @@ import sootup.java.core.jimple.basic.JavaLocal;
 
 import java.util.*;
 
-import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.INTRAPROCEDURAL;
+import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.LOCAL;
 
 @Slf4j
 @AllArgsConstructor
 public class StringConcatenationProcessor {
 
     private View view;
-    private Result result;
+    private Value leftOp;
     private Set<Result> out;
     private Stmt stmt;
     private StringConcatenationSource stringConcatenationSource;
@@ -42,17 +42,22 @@ public class StringConcatenationProcessor {
             List<Immediate> args = invokeDynamic.getArgs();
             if (isEveryArgumentStringConstant(bootstrapArgs, args) && stringConcatenationSource.isEmpty()) {
                 LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
-                result.setStatementLineNumber(linePosition.getFirstLine());
-                result.setArgumentSource(INTRAPROCEDURAL);
+                //result.setStatementLineNumber(linePosition.getFirstLine());
+                //result.setArgumentSource(INTRAPROCEDURAL);
+                stringConcatenationSource.setArgumentSources(Collections.nCopies(bootstrapArgs.size()+args.size(),
+                                                                                 LOCAL));
                 out.add(Result.builder()
                               .statementLineNumber(linePosition.getFirstLine())
-                              .argumentSource(ArgumentSource.INTRAPROCEDURAL)
+                              .argumentSource(ArgumentSource.LOCAL)
                               .build());
             } else if (!isEveryArgumentStringConstant(bootstrapArgs, args)) {
                 trackStringConcatParameters(bootstrapArgs, args);
             } else if (isEveryArgumentStringConstant(bootstrapArgs, args)) {
                 List<ArgumentSource> argumentSources = getArgumentSources(bootstrapArgs, args);
                 stringConcatenationSource.getArgumentSources().addAll(argumentSources);
+                if (!CollectionUtils.isEmpty(stringConcatenationSource.getNextVariablesToTrack())) {
+                    stringConcatenationSource.getNextVariablesToTrack().remove(leftOp/*result.getTrackVariable()*/);
+                }
             } else {
                 log.error("Unknown scenario when tracking string concatenation variables");
             }
@@ -65,8 +70,8 @@ public class StringConcatenationProcessor {
             stringConcatenationSource.setNextVariablesToTrack(javaLocals);
             stringConcatenationSource.setArgumentSources(getArgumentSources(bootstrapArgs, args));
             if (!javaLocals.isEmpty()) {
-                result.setTrackVariable(javaLocals.get(0));
-                stringConcatenationSource.getNextVariablesToTrack().remove(result.getTrackVariable());
+                //result.setTrackVariable(javaLocals.get(0));
+                stringConcatenationSource.getNextVariablesToTrack().remove(leftOp/*result.getTrackVariable()*/);
             }
 
         } else {
@@ -75,9 +80,9 @@ public class StringConcatenationProcessor {
             stringConcatenationSource.getArgumentSources().addAll(argumentSources);
             stringConcatenationSource.getNextVariablesToTrack().addAll(javaLocals);
             if (!CollectionUtils.isEmpty(stringConcatenationSource.getNextVariablesToTrack())) {
-                List<JavaLocal> nextVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
-                result.setTrackVariable(nextVariablesToTrack.get(0));
-                stringConcatenationSource.getNextVariablesToTrack().remove(result.getTrackVariable());
+                //List<JavaLocal> nextVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                //result.setTrackVariable(nextVariablesToTrack.get(0));
+                stringConcatenationSource.getNextVariablesToTrack().remove(leftOp/*result.getTrackVariable()*/);
             }
         }
     }
@@ -86,12 +91,12 @@ public class StringConcatenationProcessor {
         List<ArgumentSource> argumentSources = new ArrayList<>();
         for (Immediate immediate : bootstrapArgs) {
             if (immediate instanceof StringConstant) {
-                argumentSources.add(INTRAPROCEDURAL);
+                argumentSources.add(LOCAL);
             }
         }
         for (Immediate immediate : args) {
             if (immediate instanceof StringConstant) {
-                argumentSources.add(INTRAPROCEDURAL);
+                argumentSources.add(LOCAL);
             }
         }
         return argumentSources;
