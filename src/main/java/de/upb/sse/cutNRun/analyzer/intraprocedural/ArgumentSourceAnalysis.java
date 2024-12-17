@@ -39,6 +39,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
     private View view;
     @Getter
     private StringConcatenationSource stringConcatenationSource;
+    private boolean isBranching;
 
     public <B extends BasicBlock<B>> ArgumentSourceAnalysis(StmtGraph<B> graph, Stmt startStmt, View view) {
         super(graph);
@@ -49,12 +50,16 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                             .build();
         stringConcatenationSource = StringConcatenationSource.builder().build();
         this.view = view;
+        this.isBranching = false;
     }
 
     @Override
     protected void flowThrough(@Nonnull Set<Result> in, Stmt stmt,
                                @Nonnull Set<Result> out) {
         log.info(stmt.toString());
+        if(!in.isEmpty()){
+            out.addAll(in);
+        }
         if (!isStartStatementReached && stmt.equivTo(startStmt)) {
             isStartStatementReached = true;
         }
@@ -129,13 +134,14 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
             List<JavaLocal> nextVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
             //result.setTrackVariable(nextVariablesToTrack.get(0));
             stringConcatenationSource.getNextVariablesToTrack().remove(leftOp/*result.getTrackVariable()*/);
+        } else {
+            //
+            LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+            out.add(Result.builder()
+                          .statementLineNumber(linePosition.getFirstLine())
+                          .argumentSource(argumentSource)
+                          .build());
         }
-        //
-        LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
-        out.add(Result.builder()
-                      .statementLineNumber(linePosition.getFirstLine())
-                      .argumentSource(argumentSource)
-                      .build());
     }
 
     private void setResultArgumentSource(ArgumentSource argumentSource, Stmt stmt, Set<Result> out) {
@@ -156,6 +162,8 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
 
     @Override
     protected void merge(@Nonnull Set<Result> in1, @Nonnull Set<Result> in2, @Nonnull Set<Result> out) {
+        log.info("Merge method");
+        isBranching = true;
         /*if (in1.size() > 1 || in2.size() > 1) {
             throw new RuntimeException("Unexpected");
         } else*/ if (in1.isEmpty() && !in2.isEmpty()) {
@@ -183,5 +191,9 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
 
     public void execute() {
         super.execute();
+    }
+
+    public boolean isBranching() {
+        return isBranching;
     }
 }

@@ -32,6 +32,7 @@ import sootup.java.core.views.JavaView;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.ERROR_BRANCHING_AND_STRINGCONCAT;
 import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.UNKOWN;
 
 @Slf4j
@@ -109,8 +110,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         int modernReflectionMethodCount = 0;
         int modernReflectionFieldCount = 0;
         int modernReflectionNewInstanceCount = 0;
-        for(UnsoundMethodSignatureCategory unsoundMethodSignatureCategory : unsoundMethodSignatureCategories){
-            if(unsoundMethodSignatureCategory instanceof ReflectionMethodSignature){
+        for (UnsoundMethodSignatureCategory unsoundMethodSignatureCategory : unsoundMethodSignatureCategories) {
+            if (unsoundMethodSignatureCategory instanceof ReflectionMethodSignature) {
                 ReflectionMethodSignature traditionalReflection = (ReflectionMethodSignature) unsoundMethodSignatureCategory;
                 totalTraditionalReflectionCount = traditionalReflection.getTotalReflectionCount();
                 traditionalReflectionMethodCount = traditionalReflection.getMethodReflectionCount();
@@ -178,11 +179,29 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         if (argumentSource == UNKOWN && !stringConcatResult.isEmpty()) {
             log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
             log.info("Argument Source: {} for Statement: {}", stringConcatResult.getSource(), startStmt);
-            log.info("isSingleSource: {} sourceCount: {} allSources: {}", stringConcatResult.isEveryStringFromSameSource(),
+            log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", stringConcatResult.isEveryStringFromSameSource(),
                      stringConcatResult.getArgumentSources().size(), stringConcatResult.getArgumentSources());
-        } else {
+        } else if (stringConcatResult.isEmpty() && !argumentSourceAnalysis.isBranching()) {
             log.info("Argument Source: {} for Statement: {}", argumentSource, startStmt);
-            log.info("isSingleSource: {} sourceCount: {} allSources: {}", true, 1, argumentSource);
+            log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", true, 1, argumentSource);
+        } else if (argumentSourceAnalysis.isBranching() && !stringConcatResult.isEmpty()) {
+            log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
+            log.info("Branching sources: {}", argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
+                                                                    .map(result1 -> result1.getArgumentSource())
+                                                                    .collect(Collectors.toUnmodifiableList()));
+            log.info("Argument Source: {} for Statement: {}", ERROR_BRANCHING_AND_STRINGCONCAT, startStmt);
+        } else if (argumentSourceAnalysis.isBranching() && stringConcatResult.isEmpty()) {
+            //log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
+            List<ArgumentSource> sources = argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
+                                                                 .map(result1 -> result1.getArgumentSource())
+                                                                 .collect(Collectors.toUnmodifiableList());
+            log.info("Branching sources: {}", sources);
+            log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", sources.stream().distinct().count() == 1, sources.size(),
+                     sources);
+        } else {
+            log.error("DEFAULT else branch - UNKOWN source");
+            log.info("Argument Source: {} for Statement: {}", UNKOWN, startStmt);
+            //log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", true, 1, UNKOWN);
         }
     }
 
