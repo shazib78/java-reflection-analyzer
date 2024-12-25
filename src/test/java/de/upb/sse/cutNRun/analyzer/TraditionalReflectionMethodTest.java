@@ -60,7 +60,7 @@ class TraditionalReflectionMethodTest {
     }
 
     @Test
-    public void shouldAnalyzeTestFile5() {
+    public void shouldAnalyzeTestFile6() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/File6"));
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();

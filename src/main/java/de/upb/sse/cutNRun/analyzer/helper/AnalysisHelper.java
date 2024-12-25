@@ -1,11 +1,14 @@
 package de.upb.sse.cutNRun.analyzer.helper;
 
+import de.upb.sse.cutNRun.analyzer.methodSignature.TraditionalReflectionMethodSignature;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.expr.AbstractInvokeExpr;
 import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
 import sootup.core.jimple.common.stmt.JAssignStmt;
 import sootup.core.jimple.common.stmt.JInvokeStmt;
 import sootup.core.jimple.common.stmt.Stmt;
+import sootup.core.signatures.MethodSignature;
+import sootup.core.views.View;
 
 public class AnalysisHelper {
     public static JVirtualInvokeExpr getJVirtualInvokeExpr(Stmt stmt) {
@@ -23,5 +26,20 @@ public class AnalysisHelper {
             }
         }
         return null;
+    }
+
+    public static boolean isTraditionalNewInstanceReflection(MethodSignature methodSignature, View view){
+        TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
+        return traditionalReflection.isNewInstanceReflection(methodSignature);
+    }
+
+    public static boolean isTraditionalMethodReflection(MethodSignature methodSignature, View view){
+        TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
+        return traditionalReflection.isMethodReflection(methodSignature);
+    }
+
+    public static boolean isTraditionalFieldReflection(MethodSignature methodSignature, View view){
+        TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
+        return traditionalReflection.isFieldReflection(methodSignature);
     }
 }

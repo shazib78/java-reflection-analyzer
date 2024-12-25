@@ -6,7 +6,7 @@ import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSourceAnalysis;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.Result;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.StringConcatenationSource;
 import de.upb.sse.cutNRun.analyzer.methodSignature.ModernReflectionMethodSignature;
-import de.upb.sse.cutNRun.analyzer.methodSignature.ReflectionMethodSignature;
+import de.upb.sse.cutNRun.analyzer.methodSignature.TraditionalReflectionMethodSignature;
 import de.upb.sse.cutNRun.analyzer.methodSignature.UnsoundMethodSignatureCategory;
 import de.upb.sse.cutNRun.analyzer.soot.BackwardsInterproceduralCFG;
 import de.upb.sse.cutNRun.dataRecorder.ExcelWriterAdapter;
@@ -43,7 +43,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
 
     public ProgramAnalyzerAdaptor(View view, String jarName) {
         this.view = view;
-        this.unsoundMethodSignatureCategories = List.of(new ReflectionMethodSignature(view),
+        this.unsoundMethodSignatureCategories = List.of(new TraditionalReflectionMethodSignature(view),
                                                         new ModernReflectionMethodSignature(view));
         this.jarName = jarName;
     }
@@ -111,8 +111,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         int modernReflectionFieldCount = 0;
         int modernReflectionNewInstanceCount = 0;
         for (UnsoundMethodSignatureCategory unsoundMethodSignatureCategory : unsoundMethodSignatureCategories) {
-            if (unsoundMethodSignatureCategory instanceof ReflectionMethodSignature) {
-                ReflectionMethodSignature traditionalReflection = (ReflectionMethodSignature) unsoundMethodSignatureCategory;
+            if (unsoundMethodSignatureCategory instanceof TraditionalReflectionMethodSignature) {
+                TraditionalReflectionMethodSignature traditionalReflection = (TraditionalReflectionMethodSignature) unsoundMethodSignatureCategory;
                 totalTraditionalReflectionCount = traditionalReflection.getTotalReflectionCount();
                 traditionalReflectionMethodCount = traditionalReflection.getMethodReflectionCount();
                 traditionalReflectionFieldCount = traditionalReflection.getFieldReflectionCount();
@@ -229,6 +229,6 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
     private boolean isInvokeExpressionUnsound(JVirtualInvokeExpr jVirtualInvokeExpr) {
         return unsoundMethodSignatureCategories
                 .stream()
-                .anyMatch(category -> category.isSourceOfUnsoundness(jVirtualInvokeExpr.getMethodSignature()));
+                .anyMatch(category -> category.isSourceOfUnsoundnessAndIncreaseCount(jVirtualInvokeExpr.getMethodSignature()));
     }
 }

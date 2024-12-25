@@ -5,9 +5,9 @@ import sootup.core.signatures.MethodSignature;
 import java.util.List;
 
 public interface UnsoundMethodSignatureCategory {
-    List<MethodSignature> getSignatures();
+    List<MethodSignature> getAllSignatures();
 
-    boolean isSourceOfUnsoundness(MethodSignature methodSignature);
+    boolean isSourceOfUnsoundnessAndIncreaseCount(MethodSignature methodSignature);
 
     int getTotalReflectionCount();
 }

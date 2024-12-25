@@ -54,12 +54,12 @@ public class ModernReflectionMethodSignature implements UnsoundMethodSignatureCa
     }
 
     @Override
-    public List<MethodSignature> getSignatures() {
+    public List<MethodSignature> getAllSignatures() {
         return allMethodSignatures;
     }
 
     @Override
-    public boolean isSourceOfUnsoundness(MethodSignature methodSignature) {
+    public boolean isSourceOfUnsoundnessAndIncreaseCount(MethodSignature methodSignature) {
         boolean isUnsound = allMethodSignatures.contains(methodSignature);
         if(isUnsound){
             totalModernReflectionCount++;

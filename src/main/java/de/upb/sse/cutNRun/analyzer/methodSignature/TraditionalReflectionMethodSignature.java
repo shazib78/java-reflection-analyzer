@@ -9,7 +9,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory {
+public class TraditionalReflectionMethodSignature implements UnsoundMethodSignatureCategory {
     private View view;
     private List<MethodSignature> allReflectionSignatures;
     private List<MethodSignature> methodReflectionSignatures;
@@ -20,7 +20,7 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
     private int fieldReflectionCount;
     private int newInstanceReflectionCount;
 
-    public ReflectionMethodSignature(View view) {
+    public TraditionalReflectionMethodSignature(View view) {
         this.view = view;
         this.totalReflectionCount = 0;
         this.methodReflectionCount = 0;
@@ -61,7 +61,7 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
     }
 
     @Override
-    public List<MethodSignature> getSignatures() {
+    public List<MethodSignature> getAllSignatures() {
         /*ClassType classType = view.getIdentifierFactory().getClassType("java.lang.reflect.Method");
         MethodSignature invokeMethodSignature =  view.getIdentifierFactory()
                                                                             .getMethodSignature(classType, "invoke",
@@ -71,7 +71,7 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
     }
 
     @Override
-    public boolean isSourceOfUnsoundness(MethodSignature methodSignature) {
+    public boolean isSourceOfUnsoundnessAndIncreaseCount(MethodSignature methodSignature) {
         boolean isUnsound = allReflectionSignatures.contains(methodSignature);
         if (isUnsound) {
             totalReflectionCount++;
@@ -101,5 +101,17 @@ public class ReflectionMethodSignature implements UnsoundMethodSignatureCategory
 
     public int getNewInstanceReflectionCount() {
         return newInstanceReflectionCount;
+    }
+
+    public boolean isMethodReflection(MethodSignature methodSignature){
+        return methodReflectionSignatures.contains(methodSignature);
+    }
+
+    public boolean isFieldReflection(MethodSignature methodSignature){
+        return fieldReflectionSignatures.contains(methodSignature);
+    }
+
+    public boolean isNewInstanceReflection(MethodSignature methodSignature){
+        return newInstanceReflectionSignatures.contains(methodSignature);
     }
 }

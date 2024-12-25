@@ -172,4 +172,61 @@ public class TraditionalReflectionFieldTest {
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }
+
+    @Test
+    public void shouldAnalyzeFile7() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/field/File7-nameFromInstanceMethod"));
+        ClassType classType = view.getIdentifierFactory().getClassType("FieldFile7");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "caller", "void", Collections.emptyList()))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(5);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertEquals(RETURN_FROM_METHOD, result.getArgumentSource());
+        assertEquals(true, stringConcatResult.isEmpty());
+        assertEquals(false, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    //Multiple sources
+    @Test
+    public void shouldAnalyzeIfBranchFile1() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/field/multipleSources/ifBranch1"));
+        ClassType classType = view.getIdentifierFactory().getClassType("FieldFileIfBranch1");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "caller", "void", Collections.emptyList()))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(7);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        List<ArgumentSource> sources = argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
+                                                             .map(result1 -> result1.getArgumentSource())
+                                                             .collect(Collectors.toUnmodifiableList());
+        assertTrue(CollectionUtils.isEqualCollection(sources, Arrays.asList(LOCAL, RETURN_FROM_METHOD)));
+        assertEquals(true, stringConcatResult.isEmpty());
+        assertEquals(true, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeIfBranchFile2_ERROR_BRANCHING_AND_STRINGCONCAT() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/field/multipleSources/ifBranch2"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
 }
