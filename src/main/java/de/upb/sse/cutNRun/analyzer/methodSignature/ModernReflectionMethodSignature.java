@@ -90,4 +90,16 @@ public class ModernReflectionMethodSignature implements UnsoundMethodSignatureCa
     public int getNewInstanceReflectionCount() {
         return newInstanceReflectionCount;
     }
+
+    public boolean isMethodReflection(MethodSignature methodSignature){
+        return methodReflectionSignatures.contains(methodSignature);
+    }
+
+    public boolean isFieldReflection(MethodSignature methodSignature){
+        return fieldReflectionSignatures.contains(methodSignature);
+    }
+
+    public boolean isNewInstanceReflection(MethodSignature methodSignature){
+        return newInstanceReflectionSignatures.contains(methodSignature);
+    }
 }

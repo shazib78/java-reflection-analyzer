@@ -1,5 +1,6 @@
 package de.upb.sse.cutNRun.analyzer.helper;
 
+import de.upb.sse.cutNRun.analyzer.methodSignature.ModernReflectionMethodSignature;
 import de.upb.sse.cutNRun.analyzer.methodSignature.TraditionalReflectionMethodSignature;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.expr.AbstractInvokeExpr;
@@ -41,5 +42,25 @@ public class AnalysisHelper {
     public static boolean isTraditionalFieldReflection(MethodSignature methodSignature, View view){
         TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
         return traditionalReflection.isFieldReflection(methodSignature);
+    }
+
+    public static boolean isTraditionalReflection(MethodSignature methodSignature, View view){
+        TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
+        return traditionalReflection.isSourceOfUnsoundness(methodSignature);
+    }
+
+    public static boolean isModernNewInstanceReflection(MethodSignature methodSignature, View view){
+        ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
+        return modernReflection.isNewInstanceReflection(methodSignature);
+    }
+
+    public static boolean isModernMethodReflection(MethodSignature methodSignature, View view){
+        ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
+        return modernReflection.isMethodReflection(methodSignature);
+    }
+
+    public static boolean isModernFieldReflection(MethodSignature methodSignature, View view){
+        ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
+        return modernReflection.isFieldReflection(methodSignature);
     }
 }

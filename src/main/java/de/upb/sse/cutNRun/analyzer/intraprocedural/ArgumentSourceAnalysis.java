@@ -35,9 +35,13 @@ import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.*;
 @Slf4j
 public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
     private boolean isStartStatementReached;
+    private boolean isTraditionalReflection;
     private boolean isTraditionalNewInstanceReflection;
     private boolean isTraditionalMethodReflection;
     private boolean isTraditionalFieldReflection;
+    private boolean isModernNewInstanceReflection;
+    private boolean isModernMethodReflection;
+    private boolean isModernFieldReflection;
     private Stmt startStmt;
     @Getter
     private Result result;
@@ -49,9 +53,13 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
     public <B extends BasicBlock<B>> ArgumentSourceAnalysis(StmtGraph<B> graph, Stmt startStmt, View view) {
         super(graph);
         this.isStartStatementReached = false;
+        this.isTraditionalReflection = false;
         this.isTraditionalNewInstanceReflection = false;
         this.isTraditionalMethodReflection = false;
         this.isTraditionalFieldReflection = false;
+        this.isModernNewInstanceReflection = false;
+        this.isModernMethodReflection = false;
+        this.isModernFieldReflection = false;
         this.startStmt = startStmt;
         this.result = Result.builder()
                             .argumentSource(UNKOWN)
@@ -75,29 +83,56 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
         if (isStartStatementReached) {
             if (stmt.equivTo(startStmt)) {
                 JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
-                if(isTraditionalNewInstanceReflection(jVirtualInvokeExpr.getMethodSignature(), view)){
-                    isTraditionalNewInstanceReflection = true;
-                } else if (isTraditionalMethodReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
-                    isTraditionalMethodReflection = true;
-                } else if (isTraditionalFieldReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
-                    isTraditionalFieldReflection = true;
+                if(isTraditionalReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                    isTraditionalReflection = true;
+                    if (isTraditionalNewInstanceReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                        isTraditionalNewInstanceReflection = true;
+                    } else if (isTraditionalMethodReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                        isTraditionalMethodReflection = true;
+                    } else if (isTraditionalFieldReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                        isTraditionalFieldReflection = true;
+                    }
+                } else {
+                    if (isModernNewInstanceReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                        isModernNewInstanceReflection = true;
+                    } else if (isModernMethodReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                        isModernMethodReflection = true;
+                    } else if (isModernFieldReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                        isModernFieldReflection = true;
+                    }
                 }
             }
 
-            if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
-                analyzeMethodAndFieldReflection(out, stmt);
-            } else if (isTraditionalNewInstanceReflection) {
-                analyzeNewInstanceReflection(out, stmt);
+            if (isTraditionalReflection) {
+                if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                    analyzeMethodAndFieldReflection(out, stmt, false);
+                } else if (isTraditionalNewInstanceReflection) {
+                    analyzeNewInstanceReflection(out, stmt, false);
+                }
+            } else {
+                if(isModernMethodReflection || isModernFieldReflection){
+                    analyzeMethodAndFieldReflection(out, stmt, true);
+                } else if (isModernNewInstanceReflection) {
+                    analyzeNewInstanceReflection(out, stmt, true);
+                }
             }
         }
     }
 
-    private void analyzeNewInstanceReflection(Set<Result> out, Stmt stmt) {
+    private void analyzeNewInstanceReflection(Set<Result> out, Stmt stmt, boolean isModernReflection) {
         if (stmt.equivTo(startStmt)) {
             JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
-            Local local = jVirtualInvokeExpr.getBase();
-            if (local instanceof JavaLocal) {
-                result.setTrackVariable((JavaLocal) local);
+            Immediate immediate;
+            if(isModernReflection){
+                immediate = jVirtualInvokeExpr.getArg(0);
+            } else {
+                immediate = jVirtualInvokeExpr.getBase();
+            }
+
+            if (immediate instanceof ClassConstant) {
+                setResultArgumentSource(LOCAL, stmt, out);
+            } else if (immediate instanceof JavaLocal) {
+                result.setTrackVariable((JavaLocal) immediate);
             }
         } else if (stmt instanceof JAssignStmt) {
             JAssignStmt jAssignStmt = (JAssignStmt) stmt;
@@ -117,12 +152,12 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                         && stringConcatenationSource.isEmpty()*/) {
                     AbstractInvokeExpr abstractInvokeExpr = (AbstractInvokeExpr) rightOp;
                     MethodSignature getConstructorMethodSignature = buildGetConstructorMethodSignature();
-                    if(getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())){
+                    if (getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
                         Local local = getJVirtualInvokeExpr(stmt).getBase();
                         if (local instanceof JavaLocal) {
                             result.setTrackVariable((JavaLocal) local);
                         }
-                    }else {
+                    } else {
                         setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
                     }
                 } else if (rightOp instanceof JFieldRef /*&& stringConcatenationSource.isEmpty()*/) {
@@ -155,10 +190,15 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                    .getMethodSignature(classType, "getConstructor", "java.lang.reflect.Constructor", Arrays.asList("java.lang.Class[]"));
     }
 
-    private void analyzeMethodAndFieldReflection(Set<Result> out, Stmt stmt) {
+    private void analyzeMethodAndFieldReflection(Set<Result> out, Stmt stmt, boolean isModernReflection) {
         if (stmt.equivTo(startStmt)) {
             JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
-            Immediate argument = jVirtualInvokeExpr.getArg(0);
+            Immediate argument;
+            if(isModernReflection){
+                argument = jVirtualInvokeExpr.getArg(1);
+            } else {
+                argument = jVirtualInvokeExpr.getArg(0);
+            }
             if (argument instanceof StringConstant) {
                 setResultArgumentSource(LOCAL, stmt, out);
             } else if (argument instanceof JavaLocal) {
@@ -172,6 +212,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
             //To handle aliases, string concatenation, method return value source
             if (leftOp.equivTo(result.getTrackVariable()) ||
                     (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))) {
+
                 if (rightOp instanceof JavaLocal) {
                     result.setTrackVariable((JavaLocal) rightOp);
                 } else if (rightOp instanceof JDynamicInvokeExpr) {

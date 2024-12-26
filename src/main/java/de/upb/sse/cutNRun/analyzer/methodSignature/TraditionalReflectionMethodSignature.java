@@ -114,4 +114,8 @@ public class TraditionalReflectionMethodSignature implements UnsoundMethodSignat
     public boolean isNewInstanceReflection(MethodSignature methodSignature){
         return newInstanceReflectionSignatures.contains(methodSignature);
     }
+
+    public boolean isSourceOfUnsoundness(MethodSignature methodSignature) {
+        return allReflectionSignatures.contains(methodSignature);
+    }
 }
