@@ -12,6 +12,7 @@ import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.constant.ClassConstant;
 import sootup.core.jimple.common.constant.StringConstant;
 import sootup.core.jimple.common.expr.*;
+import sootup.core.jimple.common.ref.JArrayRef;
 import sootup.core.jimple.common.ref.JFieldRef;
 import sootup.core.jimple.common.ref.JParameterRef;
 import sootup.core.jimple.common.stmt.JAssignStmt;
@@ -222,6 +223,10 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                 if (rightOp instanceof JCastExpr) {
                     JCastExpr jCastExpr = (JCastExpr) rightOp;
                     rightOp = jCastExpr.getOp();
+                }
+                if (rightOp instanceof JArrayRef) {
+                    JArrayRef jArrayRef = (JArrayRef) rightOp;
+                    rightOp = jArrayRef.getBase();
                 }
 
                 if (rightOp instanceof Local) {

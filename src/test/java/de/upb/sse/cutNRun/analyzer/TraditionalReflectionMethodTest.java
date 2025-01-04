@@ -241,7 +241,7 @@ class TraditionalReflectionMethodTest {
 
     @Test
     public void testing() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/xercesImpl-2.12.2.jar"));
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/json-20240303.jar"));
 
         /*ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
