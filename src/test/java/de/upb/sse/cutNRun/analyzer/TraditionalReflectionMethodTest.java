@@ -239,13 +239,43 @@ class TraditionalReflectionMethodTest {
         programAnalyzerPort.analyze();
     }
 
-
-    //TODO: Test if-else and string concat
-    //TODO: Test field and constructor too
-
     @Test
     public void testing() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/spring-test-6.1.12.jar"));
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/xercesImpl-2.12.2.jar"));
+
+        /*ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "getPublicMethod", "java.lang.reflect.Method", List.of(
+                                                           "java.lang.Class","java.lang.String", "java.lang.Class[]")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(27);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        stmtGraph.getStmts().stream().forEach(stmt->
+                                              {
+                                                  System.out.println("====================");
+                                                  System.out.println("Stmt: [" + stmt + "]");
+                                                  System.out.println("before: " + argumentSourceAnalysis.getFlowAfter(stmt));
+                                                  System.out.println("after: " + argumentSourceAnalysis.getFlowBefore(stmt));
+                                                  System.out.println("====================");
+                                              });
+        System.out.println("Testing");
+        assertEquals(argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).size(), 2);
+        List<ArgumentSource> sources = argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
+                                                             .map(result1 -> result1.getArgumentSource())
+                                                             .collect(Collectors.toUnmodifiableList());
+        assertTrue(CollectionUtils.isEqualCollection(sources, Arrays.asList(RETURN_FROM_METHOD, LOCAL)));
+        //assertEquals(false, stringConcatResult.isEveryStringFromSameSource());
+        //assertEquals(2, stringConcatResult.getArgumentSources().size());
+        assertTrue(stringConcatResult.isEmpty());
+        //assertEquals(UNKOWN, result.getArgumentSource());*/
+
+        //For manual testing
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }

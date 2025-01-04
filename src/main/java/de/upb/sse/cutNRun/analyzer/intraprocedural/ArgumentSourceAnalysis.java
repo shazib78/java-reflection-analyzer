@@ -83,7 +83,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
         if (isStartStatementReached) {
             if (stmt.equivTo(startStmt)) {
                 JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
-                if(isTraditionalReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                if (isTraditionalReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
                     isTraditionalReflection = true;
                     if (isTraditionalNewInstanceReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
                         isTraditionalNewInstanceReflection = true;
@@ -110,7 +110,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                     analyzeNewInstanceReflection(out, stmt, false);
                 }
             } else {
-                if(isModernMethodReflection || isModernFieldReflection){
+                if (isModernMethodReflection || isModernFieldReflection) {
                     analyzeMethodAndFieldReflection(out, stmt, true);
                 } else if (isModernNewInstanceReflection) {
                     analyzeNewInstanceReflection(out, stmt, true);
@@ -123,7 +123,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
         if (stmt.equivTo(startStmt)) {
             JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
             Immediate immediate;
-            if(isModernReflection){
+            if (isModernReflection) {
                 immediate = jVirtualInvokeExpr.getArg(0);
             } else {
                 immediate = jVirtualInvokeExpr.getBase();
@@ -131,8 +131,8 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
 
             if (immediate instanceof ClassConstant) {
                 setResultArgumentSource(LOCAL, stmt, out);
-            } else if (immediate instanceof JavaLocal) {
-                result.setTrackVariable((JavaLocal) immediate);
+            } else if (immediate instanceof Local) {
+                result.setTrackVariable((Local) immediate);
             }
         } else if (stmt instanceof JAssignStmt) {
             JAssignStmt jAssignStmt = (JAssignStmt) stmt;
@@ -142,8 +142,14 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
             //To handle aliases, string concatenation, method return value source
             if (leftOp.equivTo(result.getTrackVariable()) /*||
                     (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))*/) {
-                if (rightOp instanceof JavaLocal) {
-                    result.setTrackVariable((JavaLocal) rightOp);
+
+                if (rightOp instanceof JCastExpr) {
+                    JCastExpr jCastExpr = (JCastExpr) rightOp;
+                    rightOp = jCastExpr.getOp();
+                }
+
+                if (rightOp instanceof Local) {
+                    result.setTrackVariable((Local) rightOp);
                 } /*else if (rightOp instanceof JDynamicInvokeExpr) {
                     StringConcatenationProcessor stringConcatenationProcessor =
                             new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
@@ -154,8 +160,8 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                     MethodSignature getConstructorMethodSignature = buildGetConstructorMethodSignature();
                     if (getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
                         Local local = getJVirtualInvokeExpr(stmt).getBase();
-                        if (local instanceof JavaLocal) {
-                            result.setTrackVariable((JavaLocal) local);
+                        if (local instanceof Local) {
+                            result.setTrackVariable((Local) local);
                         }
                     } else {
                         setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
@@ -194,27 +200,32 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
         if (stmt.equivTo(startStmt)) {
             JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
             Immediate argument;
-            if(isModernReflection){
+            if (isModernReflection) {
                 argument = jVirtualInvokeExpr.getArg(1);
             } else {
                 argument = jVirtualInvokeExpr.getArg(0);
             }
             if (argument instanceof StringConstant) {
                 setResultArgumentSource(LOCAL, stmt, out);
-            } else if (argument instanceof JavaLocal) {
-                result.setTrackVariable((JavaLocal) argument);
+            } else if (argument instanceof Local) {
+                result.setTrackVariable((Local) argument);
             }
         } else if (stmt instanceof JAssignStmt) {
             JAssignStmt jAssignStmt = (JAssignStmt) stmt;
             Value leftOp = jAssignStmt.getLeftOp();
             Value rightOp = jAssignStmt.getRightOp();
-            List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
             //To handle aliases, string concatenation, method return value source
             if (leftOp.equivTo(result.getTrackVariable()) ||
                     (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))) {
 
-                if (rightOp instanceof JavaLocal) {
-                    result.setTrackVariable((JavaLocal) rightOp);
+                if (rightOp instanceof JCastExpr) {
+                    JCastExpr jCastExpr = (JCastExpr) rightOp;
+                    rightOp = jCastExpr.getOp();
+                }
+
+                if (rightOp instanceof Local) {
+                    result.setTrackVariable((Local) rightOp);
                 } else if (rightOp instanceof JDynamicInvokeExpr) {
                     StringConcatenationProcessor stringConcatenationProcessor =
                             new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
@@ -234,7 +245,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
             JIdentityStmt jIdentityStmt = (JIdentityStmt) stmt;
             Value leftOp = jIdentityStmt.getLeftOp();
             Value rightOp = jIdentityStmt.getRightOp();
-            List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
             if (leftOp.equivTo(result.getTrackVariable()) ||
                     (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))) {
                 if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
@@ -262,25 +273,37 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
     private void setStringConcatenationArgumentSource(ArgumentSource argumentSource, Value leftOp, Stmt stmt, Set<Result> out) {
         stringConcatenationSource.getArgumentSources().add(argumentSource);
         if (!CollectionUtils.isEmpty(stringConcatenationSource.getNextVariablesToTrack())) {
-            List<JavaLocal> nextVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            List<Local> nextVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
             //result.setTrackVariable(nextVariablesToTrack.get(0));
             stringConcatenationSource.getNextVariablesToTrack().remove(leftOp/*result.getTrackVariable()*/);
         } else {
             //
-            LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+            LinePosition linePosition;// = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+            try {
+                linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+            } catch (Exception e){
+                linePosition = null;
+                e.printStackTrace();
+            }
             out.add(Result.builder()
-                          .statementLineNumber(linePosition.getFirstLine())
+                          .statementLineNumber(linePosition == null ? -1 : linePosition.getFirstLine())
                           .argumentSource(argumentSource)
                           .build());
         }
     }
 
     private void setResultArgumentSource(ArgumentSource argumentSource, Stmt stmt, Set<Result> out) {
-        LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
-        result.setStatementLineNumber(linePosition.getFirstLine());
+        LinePosition linePosition;// = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+        try {
+            linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+        } catch (Exception e){
+            linePosition = null;
+            e.printStackTrace();
+        }
+        result.setStatementLineNumber(linePosition == null ? -1 : linePosition.getFirstLine());
         result.setArgumentSource(argumentSource);
         out.add(Result.builder()
-                      .statementLineNumber(linePosition.getFirstLine())
+                      .statementLineNumber(linePosition == null ? -1 : linePosition.getFirstLine())
                       .argumentSource(argumentSource)
                       .build());
     }
@@ -294,7 +317,9 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
     @Override
     protected void merge(@Nonnull Set<Result> in1, @Nonnull Set<Result> in2, @Nonnull Set<Result> out) {
         log.info("Merge method");
-        isBranching = true;
+        if (isStartStatementReached) {
+            isBranching = true;
+        }
         /*if (in1.size() > 1 || in2.size() > 1) {
             throw new RuntimeException("Unexpected");
         } else*/

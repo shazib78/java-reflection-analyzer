@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.util.CollectionUtils;
+import sootup.core.jimple.basic.Local;
 import sootup.java.core.jimple.basic.JavaLocal;
 
 import java.util.List;
@@ -17,7 +18,7 @@ import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.CONTRAD
 @Builder
 public class StringConcatenationSource {
     private List<ArgumentSource> argumentSources;
-    private List<JavaLocal> nextVariablesToTrack;
+    private List<Local> nextVariablesToTrack;
 
     public boolean isEmpty() {
         if ((argumentSources == null || argumentSources.isEmpty())

@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import sootup.core.jimple.basic.Local;
 import sootup.java.core.jimple.basic.JavaLocal;
 
 import java.util.Objects;
@@ -15,7 +16,7 @@ import java.util.Objects;
 public class Result {
     private int statementLineNumber;
     private ArgumentSource argumentSource;
-    private JavaLocal trackVariable;
+    private Local trackVariable;
 
     @Override
     public String toString() {

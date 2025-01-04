@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
 import sootup.core.jimple.basic.Immediate;
+import sootup.core.jimple.basic.Local;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.constant.StringConstant;
 import sootup.core.jimple.common.expr.JDynamicInvokeExpr;
@@ -12,7 +13,6 @@ import sootup.core.model.LinePosition;
 import sootup.core.signatures.MethodSignature;
 import sootup.core.types.ClassType;
 import sootup.core.views.View;
-import sootup.java.core.jimple.basic.JavaLocal;
 
 import java.util.*;
 
@@ -41,13 +41,20 @@ public class StringConcatenationProcessor {
             List<Immediate> bootstrapArgs = invokeDynamic.getBootstrapArgs();
             List<Immediate> args = invokeDynamic.getArgs();
             if (isEveryArgumentStringConstant(bootstrapArgs, args) && stringConcatenationSource.isEmpty()) {
-                LinePosition linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+
+                LinePosition linePosition;// = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+                try {
+                    linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+                } catch (Exception e){
+                    linePosition = null;
+                    e.printStackTrace();
+                }
                 //result.setStatementLineNumber(linePosition.getFirstLine());
                 //result.setArgumentSource(INTRAPROCEDURAL);
                 stringConcatenationSource.setArgumentSources(Collections.nCopies(bootstrapArgs.size()+args.size(),
                                                                                  LOCAL));
                 out.add(Result.builder()
-                              .statementLineNumber(linePosition.getFirstLine())
+                              .statementLineNumber(linePosition == null ? -1: linePosition.getFirstLine())
                               .argumentSource(ArgumentSource.LOCAL)
                               .build());
             } else if (!isEveryArgumentStringConstant(bootstrapArgs, args)) {
@@ -66,7 +73,7 @@ public class StringConcatenationProcessor {
 
     private void trackStringConcatParameters(List<Immediate> bootstrapArgs, List<Immediate> args) {
         if (stringConcatenationSource.isEmpty()) {
-            List<JavaLocal> javaLocals = getJavaLocalArguments(bootstrapArgs, args);
+            List<Local> javaLocals = getLocalArguments(bootstrapArgs, args);
             stringConcatenationSource.setNextVariablesToTrack(javaLocals);
             stringConcatenationSource.setArgumentSources(getArgumentSources(bootstrapArgs, args));
             if (!javaLocals.isEmpty()) {
@@ -75,7 +82,7 @@ public class StringConcatenationProcessor {
             }
 
         } else {
-            List<JavaLocal> javaLocals = getJavaLocalArguments(bootstrapArgs, args);
+            List<Local> javaLocals = getLocalArguments(bootstrapArgs, args);
             List<ArgumentSource> argumentSources = getArgumentSources(bootstrapArgs, args);
             stringConcatenationSource.getArgumentSources().addAll(argumentSources);
             stringConcatenationSource.getNextVariablesToTrack().addAll(javaLocals);
@@ -102,16 +109,16 @@ public class StringConcatenationProcessor {
         return argumentSources;
     }
 
-    private List<JavaLocal> getJavaLocalArguments(List<Immediate> bootstrapArgs, List<Immediate> args) {
-        List<JavaLocal> javaLocals = new ArrayList<>();
+    private List<Local> getLocalArguments(List<Immediate> bootstrapArgs, List<Immediate> args) {
+        List<Local> javaLocals = new ArrayList<>();
         for (Immediate immediate : bootstrapArgs) {
-            if (immediate instanceof JavaLocal) {
-                javaLocals.add((JavaLocal) immediate);
+            if (immediate instanceof Local) {
+                javaLocals.add((Local) immediate);
             }
         }
         for (Immediate immediate : args) {
-            if (immediate instanceof JavaLocal) {
-                javaLocals.add((JavaLocal) immediate);
+            if (immediate instanceof Local) {
+                javaLocals.add((Local) immediate);
             }
         }
         return javaLocals;

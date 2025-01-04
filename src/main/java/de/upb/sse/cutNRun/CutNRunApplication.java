@@ -58,7 +58,7 @@ public class CutNRunApplication implements CommandLineRunner {
                 /*if(test<=15) {
                     programAnalyzerPort.analyze();
                 }*/
-                //programAnalyzerPort.analyze();
+                programAnalyzerPort.analyze();
             } else {
                 log.error("jar {} not found", jarName);
                 //throw new RuntimeException("jar " + jarName + " not found");

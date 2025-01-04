@@ -57,7 +57,8 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                                "modernReflection-METHOD", "modernReflection-NEW-INSTANCE", "modernReflection-FIELD", "totalModernReflection");
         Map<String, Object[]> excelData = new LinkedHashMap<>();
         try {
-            if (!excelWriter.isJarWritten(jarName)) {
+            //TODO: uncomment for RQ1
+            //if (!excelWriter.isJarWritten(jarName)) {
                 int totalSourcesOfUnsoundnessCount = 0;
                 for (SootClass sootClass : view.getClasses().toList()) {
                     for (SootMethod sootMethod : sootClass.getMethods()) {
@@ -90,8 +91,9 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                     }*/
                 }
                 log.info("Sources of Unsoundness - Total Count: " + totalSourcesOfUnsoundnessCount);
-                setExcelData(excelData, totalSourcesOfUnsoundnessCount);
-            }
+                setRQ1ExcelData(excelData, totalSourcesOfUnsoundnessCount);
+            //TODO: uncomment for RQ1
+            //}
         } catch (Exception e) {
             e.printStackTrace();
             excelData.put(jarName, new Object[]{jarName, "", "", "", "ERROR", e.getMessage(), "", "", "", ""});
@@ -101,7 +103,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         }
     }
 
-    private void setExcelData(Map<String, Object[]> excelData, int totalSourcesOfUnsoundnessCount) {
+    private void setRQ1ExcelData(Map<String, Object[]> excelData, int totalSourcesOfUnsoundnessCount) {
         int totalTraditionalReflectionCount = 0;
         int traditionalReflectionMethodCount = 0;
         int traditionalReflectionFieldCount = 0;
@@ -170,38 +172,75 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
     }
 
     private void performIntraProceduralAnalysis(SootMethod sootMethod, Stmt startStmt) {
-        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
-        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
-        argumentSourceAnalysis.execute();
-        Result result = argumentSourceAnalysis.getResult();
-        ArgumentSource argumentSource = result.getArgumentSource();
-        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
-        if (argumentSource == UNKOWN && !stringConcatResult.isEmpty()) {
-            log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
-            log.info("Argument Source: {} for Statement: {}", stringConcatResult.getSource(), startStmt);
-            log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", stringConcatResult.isEveryStringFromSameSource(),
-                     stringConcatResult.getArgumentSources().size(), stringConcatResult.getArgumentSources());
-        } else if (stringConcatResult.isEmpty() && !argumentSourceAnalysis.isBranching()) {
-            log.info("Argument Source: {} for Statement: {}", argumentSource, startStmt);
-            log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", true, 1, argumentSource);
-        } else if (argumentSourceAnalysis.isBranching() && !stringConcatResult.isEmpty()) {
-            log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
-            log.info("Branching sources: {}", argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
-                                                                    .map(result1 -> result1.getArgumentSource())
-                                                                    .collect(Collectors.toUnmodifiableList()));
-            log.info("Argument Source: {} for Statement: {}", ERROR_BRANCHING_AND_STRINGCONCAT, startStmt);
-        } else if (argumentSourceAnalysis.isBranching() && stringConcatResult.isEmpty()) {
-            //log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
-            List<ArgumentSource> sources = argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
-                                                                 .map(result1 -> result1.getArgumentSource())
-                                                                 .collect(Collectors.toUnmodifiableList());
-            log.info("Branching sources: {}", sources);
-            log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", sources.stream().distinct().count() == 1, sources.size(),
-                     sources);
-        } else {
-            log.error("DEFAULT else branch - UNKOWN source");
-            log.info("Argument Source: {} for Statement: {}", UNKOWN, startStmt);
-            //log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", true, 1, UNKOWN);
+        log.info("Starting analysis for Method={} and StartStmt={}", sootMethod.getSignature().getSubSignature(), startStmt);
+        ExcelWriterPort excelWriter = new ExcelWriterAdapter("RQ2_Factors", false);
+        excelWriter.setHeaders("statementId", "project", "statement", "isSameFactor", "totalFactors", "isStringConcat", "Factors", "isBranching", "Error");
+        Map<String, Object[]> excelData = new LinkedHashMap<>();
+        String statementId = jarName + "_" + sootMethod.getDeclaringClassType() + "_"
+                + sootMethod.getSignature().getSubSignature().toString() + "_" + startStmt.getPositionInfo().getStmtPosition().getFirstLine();
+        try {
+            if (!excelWriter.isJarWritten(jarName)) {
+                StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+                ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+                argumentSourceAnalysis.execute();
+                Result result = argumentSourceAnalysis.getResult();
+                ArgumentSource argumentSource = result.getArgumentSource();
+                StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+                if (argumentSource == UNKOWN && !stringConcatResult.isEmpty()) {
+                    log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
+                    log.info("Argument Source: {} for Statement: {}", stringConcatResult.getSource(), startStmt);
+                    log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", stringConcatResult.isEveryStringFromSameSource(),
+                             stringConcatResult.getArgumentSources().size(), stringConcatResult.getArgumentSources());
+                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, stringConcatResult.isEveryStringFromSameSource(),
+                            stringConcatResult.getArgumentSources().size(), !stringConcatResult.isEmpty(),
+                            stringConcatResult.getArgumentSources(), argumentSourceAnalysis.isBranching(), ""});
+
+                } else if (stringConcatResult.isEmpty() && !argumentSourceAnalysis.isBranching()) {
+                    log.info("Argument Source: {} for Statement: {}", argumentSource, startStmt);
+                    log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", true, 1, argumentSource);
+                    if (argumentSource == UNKOWN){
+                        log.error("Testing");
+                    }
+                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, true, 1, !stringConcatResult.isEmpty(),
+                            Arrays.asList(argumentSource), argumentSourceAnalysis.isBranching(), ""});
+
+                } else if (argumentSourceAnalysis.isBranching() && !stringConcatResult.isEmpty()) {
+                    log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
+                    log.info("Branching sources: {}", argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
+                                                                            .map(result1 -> result1.getArgumentSource())
+                                                                            .collect(Collectors.toUnmodifiableList()));
+                    log.info("Argument Source: {} for Statement: {}", ERROR_BRANCHING_AND_STRINGCONCAT, startStmt);
+                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "", "",
+                            ERROR_BRANCHING_AND_STRINGCONCAT, "", "Logic not handled for existence of both branching and string concatenation"});
+
+                } else if (argumentSourceAnalysis.isBranching() && stringConcatResult.isEmpty()) {
+                    //log.info("String Concatenation sources: {}", stringConcatResult.getArgumentSources());
+                    List<ArgumentSource> sources = argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
+                                                                         .map(result1 -> result1.getArgumentSource())
+                                                                         .collect(Collectors.toUnmodifiableList());
+                    log.info("Branching sources: {}", sources);
+                    log.info("for Statement: {}", startStmt);
+                    log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", sources.stream().distinct().count() == 1, sources.size(),
+                             sources);
+                    if (sources.size()<=0){
+                        log.error("Testing");
+                    }
+                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, sources.stream().distinct().count() == 1,
+                            sources.size(), !stringConcatResult.isEmpty(),
+                            sources, argumentSourceAnalysis.isBranching(), ""});
+                } else {
+                    log.error("DEFAULT else branch - UNKOWN source");
+                    log.info("Argument Source: {} for Statement: {}", UNKOWN, startStmt);
+                    //log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", true, 1, UNKOWN);
+                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "",
+                            "", "", "UNKOWN", "", "UNKOWN"});
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "", "", "ERROR", "", e.getMessage()});
+        }  finally {
+            excelWriter.saveData(excelData);
         }
     }
 
