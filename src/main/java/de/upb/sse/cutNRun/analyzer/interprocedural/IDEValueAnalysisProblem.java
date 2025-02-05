@@ -222,14 +222,14 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
 
     @Override
     public Map<Stmt, Set<Local>> initialSeeds() {
-        /*for (MethodSignature methodSignature : entryPoints) {
+        for (MethodSignature methodSignature : entryPoints) {
             SootMethod m = view.getMethod(methodSignature).get();
             if (!m.hasBody()) {
                 continue;
             }
             return DefaultSeeds.make(Collections.singleton(icfg.getStartPointsOf(m).stream().findFirst().get()), zeroValue());
         }
-        throw new IllegalStateException("View does not contain entryPoint " + entryPoints);*/
-        return DefaultSeeds.make(Collections.singleton(startStmt), zeroValue());
+        throw new IllegalStateException("View does not contain entryPoint " + entryPoints);
+        /*return DefaultSeeds.make(Collections.singleton(startStmt), zeroValue());*/
     }
 }

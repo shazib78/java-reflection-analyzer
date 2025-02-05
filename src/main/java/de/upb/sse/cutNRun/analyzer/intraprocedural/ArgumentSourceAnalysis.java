@@ -17,12 +17,12 @@ import sootup.core.jimple.common.ref.JFieldRef;
 import sootup.core.jimple.common.ref.JParameterRef;
 import sootup.core.jimple.common.stmt.JAssignStmt;
 import sootup.core.jimple.common.stmt.JIdentityStmt;
+import sootup.core.jimple.common.stmt.JInvokeStmt;
 import sootup.core.jimple.common.stmt.Stmt;
 import sootup.core.model.LinePosition;
 import sootup.core.signatures.MethodSignature;
 import sootup.core.types.ClassType;
 import sootup.core.views.View;
-import sootup.java.core.jimple.basic.JavaLocal;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -63,7 +63,7 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
         this.isModernFieldReflection = false;
         this.startStmt = startStmt;
         this.result = Result.builder()
-                            .argumentSource(UNKOWN)
+                            .argumentSource(UNKNOWN)
                             .build();
         stringConcatenationSource = StringConcatenationSource.builder().build();
         this.view = view;
@@ -257,6 +257,33 @@ public class ArgumentSourceAnalysis extends BackwardFlowAnalysis<Set<Result>> {
                     setResultArgumentSource(METHOD_PARAMETER, stmt, out);
                 } else if (!stringConcatenationSource.isEmpty()) {
                     updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                }
+            }
+        } else if (stmt instanceof JInvokeStmt){
+            JInvokeStmt jInvokeStmt = (JInvokeStmt) stmt;
+            AbstractInvokeExpr abstractInvokeExpr = jInvokeStmt.getInvokeExpr().orElse(null);
+            if(abstractInvokeExpr instanceof JSpecialInvokeExpr){
+                JSpecialInvokeExpr jSpecialInvokeExpr = (JSpecialInvokeExpr) abstractInvokeExpr;
+                Local baseVariable = jSpecialInvokeExpr.getBase();
+                List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                if (baseVariable.equivTo(result.getTrackVariable()) ||
+                        (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(baseVariable))) {
+                    MethodSignature specialInvokeMethodSignature = jSpecialInvokeExpr.getMethodSignature();
+                    if(isNewStringObjectCreationSignature(specialInvokeMethodSignature, view)){
+                        Value parameter = jSpecialInvokeExpr.getArg(0);
+                        if (parameter instanceof Local){
+                            result.setTrackVariable((Local) parameter);
+                        } else if(parameter instanceof StringConstant && stringConcatenationSource.isEmpty()) {
+                            setResultArgumentSource(LOCAL, stmt, out);
+                        } else if (!stringConcatenationSource.isEmpty()) {
+                            updateStringConcatenationSource(baseVariable, parameter, stmt, out);
+                        }
+                    }
+                    /*if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
+                        setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                    } else if (!stringConcatenationSource.isEmpty()) {
+                        updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                    }*/
                 }
             }
         }

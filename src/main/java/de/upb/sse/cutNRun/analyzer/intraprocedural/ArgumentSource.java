@@ -6,6 +6,6 @@ public enum ArgumentSource {
     RETURN_FROM_METHOD,
     FIELD,
     CONTRADICTING,
-    UNKOWN,
+    UNKNOWN,
     ERROR_BRANCHING_AND_STRINGCONCAT
 }

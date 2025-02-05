@@ -66,7 +66,7 @@ public class TraditionalReflectionFieldTest {
 
         Result result = argumentSourceAnalysis.getResult();
         StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
-        assertEquals(UNKOWN, result.getArgumentSource());
+        assertEquals(UNKNOWN, result.getArgumentSource());
         assertEquals(false, stringConcatResult.isEmpty());
         assertTrue(CollectionUtils.isEqualCollection(stringConcatResult.getArgumentSources(), Arrays.asList(LOCAL, LOCAL)));
 
@@ -89,7 +89,7 @@ public class TraditionalReflectionFieldTest {
 
         Result result = argumentSourceAnalysis.getResult();
         StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
-        assertEquals(UNKOWN, result.getArgumentSource());
+        assertEquals(UNKNOWN, result.getArgumentSource());
         assertEquals(false, stringConcatResult.isEmpty());
         assertTrue(CollectionUtils.isEqualCollection(stringConcatResult.getArgumentSources(), Arrays.asList(LOCAL, LOCAL
                 , LOCAL, LOCAL, LOCAL, LOCAL)));
@@ -113,7 +113,7 @@ public class TraditionalReflectionFieldTest {
 
         Result result = argumentSourceAnalysis.getResult();
         StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
-        assertEquals(UNKOWN, result.getArgumentSource());
+        assertEquals(UNKNOWN, result.getArgumentSource());
         assertEquals(false, stringConcatResult.isEmpty());
         assertTrue(CollectionUtils.isEqualCollection(stringConcatResult.getArgumentSources(), Arrays.asList(LOCAL, LOCAL
                 , LOCAL, LOCAL)));
@@ -137,7 +137,7 @@ public class TraditionalReflectionFieldTest {
 
         Result result = argumentSourceAnalysis.getResult();
         StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
-        assertEquals(UNKOWN, result.getArgumentSource());
+        assertEquals(UNKNOWN, result.getArgumentSource());
         assertEquals(false, stringConcatResult.isEmpty());
         assertEquals(false, argumentSourceAnalysis.isBranching());
         assertTrue(CollectionUtils.isEqualCollection(stringConcatResult.getArgumentSources(), Arrays.asList(LOCAL, LOCAL,

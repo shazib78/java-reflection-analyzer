@@ -9,7 +9,11 @@ import sootup.core.jimple.common.stmt.JAssignStmt;
 import sootup.core.jimple.common.stmt.JInvokeStmt;
 import sootup.core.jimple.common.stmt.Stmt;
 import sootup.core.signatures.MethodSignature;
+import sootup.core.types.ClassType;
 import sootup.core.views.View;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class AnalysisHelper {
     public static JVirtualInvokeExpr getJVirtualInvokeExpr(Stmt stmt) {
@@ -29,37 +33,60 @@ public class AnalysisHelper {
         return null;
     }
 
-    public static boolean isTraditionalNewInstanceReflection(MethodSignature methodSignature, View view){
+    public static boolean isNewStringObjectCreationSignature(MethodSignature specialInvokeMethodSignature, View view) {
+        MethodSignature StringConstructor = buildMethodSignature("java.lang.String", "<init>", "void",
+                                                                 Arrays.asList("java.lang.String"), view);
+        MethodSignature charArrayConstructor = buildMethodSignature("java.lang.String", "<init>", "void",
+                                                                    Arrays.asList("char[]"), view);
+        MethodSignature charArrayWithSubRangeConstructor = buildMethodSignature("java.lang.String", "<init>", "void",
+                                                                                Arrays.asList("char[]", "int", "int"), view);
+        MethodSignature byteArrayConstructor = buildMethodSignature("java.lang.String", "<init>", "void",
+                                                                    Arrays.asList("byte[]"), view);
+        MethodSignature byteArrayWithSubRangeConstructor = buildMethodSignature("java.lang.String", "<init>", "void",
+                                                                                Arrays.asList("byte[]", "int", "int"), view);
+        List<MethodSignature> stringConstructorSignatures = List.of(StringConstructor, charArrayConstructor, charArrayWithSubRangeConstructor,
+                                                                    byteArrayConstructor, byteArrayWithSubRangeConstructor);
+        return stringConstructorSignatures.contains(specialInvokeMethodSignature);
+    }
+
+    public static MethodSignature buildMethodSignature(String className, String methodName, String returnType, List<String> parameterType, View view) {
+        ClassType classType = view.getIdentifierFactory().getClassType(className);
+        return view.getIdentifierFactory()
+                   .getMethodSignature(classType, methodName, returnType, parameterType);
+
+    }
+
+    public static boolean isTraditionalNewInstanceReflection(MethodSignature methodSignature, View view) {
         TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
         return traditionalReflection.isNewInstanceReflection(methodSignature);
     }
 
-    public static boolean isTraditionalMethodReflection(MethodSignature methodSignature, View view){
+    public static boolean isTraditionalMethodReflection(MethodSignature methodSignature, View view) {
         TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
         return traditionalReflection.isMethodReflection(methodSignature);
     }
 
-    public static boolean isTraditionalFieldReflection(MethodSignature methodSignature, View view){
+    public static boolean isTraditionalFieldReflection(MethodSignature methodSignature, View view) {
         TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
         return traditionalReflection.isFieldReflection(methodSignature);
     }
 
-    public static boolean isTraditionalReflection(MethodSignature methodSignature, View view){
+    public static boolean isTraditionalReflection(MethodSignature methodSignature, View view) {
         TraditionalReflectionMethodSignature traditionalReflection = new TraditionalReflectionMethodSignature(view);
         return traditionalReflection.isSourceOfUnsoundness(methodSignature);
     }
 
-    public static boolean isModernNewInstanceReflection(MethodSignature methodSignature, View view){
+    public static boolean isModernNewInstanceReflection(MethodSignature methodSignature, View view) {
         ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
         return modernReflection.isNewInstanceReflection(methodSignature);
     }
 
-    public static boolean isModernMethodReflection(MethodSignature methodSignature, View view){
+    public static boolean isModernMethodReflection(MethodSignature methodSignature, View view) {
         ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
         return modernReflection.isMethodReflection(methodSignature);
     }
 
-    public static boolean isModernFieldReflection(MethodSignature methodSignature, View view){
+    public static boolean isModernFieldReflection(MethodSignature methodSignature, View view) {
         ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
         return modernReflection.isFieldReflection(methodSignature);
     }

@@ -239,9 +239,171 @@ class TraditionalReflectionMethodTest {
         programAnalyzerPort.analyze();
     }
 
+    //Test string new keyword
+    @Test
+    public void shouldAnalyzeStingNewKeyword() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/StringNewKeyword/basicNewKeyword"));
+        ClassType classType = view.getIdentifierFactory().getClassType("StringConcat");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(6);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertTrue(stringConcatResult.isEmpty());
+        assertEquals(LOCAL, result.getArgumentSource());
+        assertEquals(false, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeStingNewKeyword2() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/StringNewKeyword/basicNewKeyword2"));
+        ClassType classType = view.getIdentifierFactory().getClassType("StringConcat");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(10);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertTrue(stringConcatResult.isEmpty());
+        assertEquals(LOCAL, result.getArgumentSource());
+        assertEquals(false, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeStringNewKeywordWithMethodReturnSource() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/StringNewKeyword/basicNewKeyword-methodReturn"));
+        ClassType classType = view.getIdentifierFactory().getClassType("StringConcat");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(7);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertTrue(stringConcatResult.isEmpty());
+        assertEquals(RETURN_FROM_METHOD, result.getArgumentSource());
+        assertEquals(false, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeStringNewKeywordWithDifferentConstructors() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/StringNewKeyword/DifferentConstructors"));
+        ClassType classType = view.getIdentifierFactory().getClassType("StringConcat");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(8);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertTrue(stringConcatResult.isEmpty());
+        assertEquals(RETURN_FROM_METHOD, result.getArgumentSource());
+        assertEquals(false, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeStringNewKeywordForEmptyString() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/StringNewKeyword/stringEmpty"));
+        ClassType classType = view.getIdentifierFactory().getClassType("StringConcat");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(8);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertTrue(stringConcatResult.isEmpty());
+        assertEquals(UNKNOWN, result.getArgumentSource());
+        assertEquals(false, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeStringNewKeywordWithStringConcat() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/StringNewKeyword/stringConcat"));
+        ClassType classType = view.getIdentifierFactory().getClassType("StringConcat");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(5);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertEquals(UNKNOWN, result.getArgumentSource());
+        assertEquals(false, stringConcatResult.isEmpty());
+        assertTrue(CollectionUtils.isEqualCollection(stringConcatResult.getArgumentSources(), Arrays.asList(LOCAL, RETURN_FROM_METHOD)));
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeStringBuffer() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/StringBufferAndBuilder"));
+        ClassType classType = view.getIdentifierFactory().getClassType("StringBufferBuilder");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(7);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertTrue(stringConcatResult.isEmpty());
+        assertEquals(RETURN_FROM_METHOD, result.getArgumentSource());
+        assertEquals(false, argumentSourceAnalysis.isBranching());
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
     @Test
     public void testing() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/json-20240303.jar"));
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/hibernate-core-6.6.3.Final.jar"));
 
         /*ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
