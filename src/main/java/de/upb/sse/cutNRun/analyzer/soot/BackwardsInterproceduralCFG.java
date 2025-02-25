@@ -10,6 +10,7 @@ import sootup.core.jimple.common.stmt.Stmt;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Same as {@link JimpleBasedInterproceduralCFG} but based on inverted Stmt graphs. This should be used for backward
@@ -92,12 +93,21 @@ public class BackwardsInterproceduralCFG implements BiDiInterproceduralCFG<Stmt,
   // same
   @Override
   public Collection<SootMethod> getCalleesOfCallAt(Stmt n) {
+    /*Collection<Stmt> callerStmts = delegate.getCallersOf(delegate.getMethodOf(n));
+    return callerStmts.stream()
+                     .map(callerStmt -> delegate.getMethodOf(callerStmt))
+                     .collect(Collectors.toSet());*/
     return delegate.getCalleesOfCallAt(n);
   }
 
   // same
   @Override
   public Collection<Stmt> getCallersOf(SootMethod m) {
+    /*Set<Stmt> stmts = delegate.getCallsFromWithin(m);
+    return stmts.stream()
+         .flatMap(stmt -> delegate.getCalleesOfCallAt(stmt).stream())
+         .map(sootMethod -> sootMethod.getBody().getStmtGraph().getStartingStmt())
+            .collect(Collectors.toSet());*/
     return delegate.getCallersOf(m);
   }
 
@@ -110,6 +120,7 @@ public class BackwardsInterproceduralCFG implements BiDiInterproceduralCFG<Stmt,
   // same
   @Override
   public boolean isCallStmt(Stmt stmt) {
+    //return isExitStmt(stmt);
     return delegate.isCallStmt(stmt);
   }
 

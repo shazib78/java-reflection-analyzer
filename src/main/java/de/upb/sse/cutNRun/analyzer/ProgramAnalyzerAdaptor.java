@@ -15,6 +15,7 @@ import heros.InterproceduralCFG;
 import lombok.extern.slf4j.Slf4j;
 import sootup.analysis.interprocedural.icfg.JimpleBasedInterproceduralCFG;
 import sootup.analysis.interprocedural.ide.JimpleIDESolver;
+import sootup.callgraph.ClassHierarchyAnalysisAlgorithm;
 import sootup.core.graph.StmtGraph;
 import sootup.core.jimple.basic.Local;
 import sootup.core.jimple.basic.Value;
@@ -32,7 +33,6 @@ import sootup.java.core.views.JavaView;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.buildMethodSignature;
 import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.ERROR_BRANCHING_AND_STRINGCONCAT;
 import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.UNKNOWN;
 
@@ -147,12 +147,20 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         log.info("Starting inter-procedural analysis");
         log.info("Entry point:" + methodWithReflection.toString());
         final List<MethodSignature> startMethod = Collections.singletonList(methodWithReflection.getSignature());
-        final List<MethodSignature> entryPoints = getEntryPoints();
-        JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(view, entryPoints, false, true);
+        final List<MethodSignature> mainMethodEntryPoints = getMainMethodEntryPoints();
+        final List<MethodSignature> cgEntryPoints = view.getClasses()
+                                                        .flatMap(sootClass -> sootClass.getMethods().stream())
+                                                        .filter(sootMethod -> sootMethod.isPublic())
+                                                        .map(SootMethod::getSignature)
+                                                        .collect(Collectors.toList());
+
+        JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(
+                (new ClassHierarchyAnalysisAlgorithm(view)).initialize(cgEntryPoints)
+                , view, false, true);     //new JimpleBasedInterproceduralCFG(view, entryPoints, false, true);
         BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg);
         //TODO: testing start
         log.info("testing statements start");
-        List<Stmt> startPointStmt = (List<Stmt>) icfg.getStartPointsOf(view.getMethod(entryPoints.get(0)).orElse(null));
+        /*List<Stmt> startPointStmt = (List<Stmt>) icfg.getStartPointsOf(view.getMethod(entryPoints.get(0)).orElse(null));
         List<Stmt> temp = icfg.getSuccsOf(startPointStmt.get(0));
         log.info(temp.toString());
         do{
@@ -164,28 +172,30 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                 //break;
             //}
         }while (!temp.isEmpty());
-        log.info("testing statements end");
+        log.info("testing statements end");*/
         //TODO: testing end
 
-        IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(icfg, entryPoints, startStmt, (JavaView) view);
+        IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(backwardICFG, startMethod, startStmt, (JavaView) view);
         JimpleIDESolver<Local, String, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
         solver.solve();
         Map<Local, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(methodWithReflection).stream().findFirst().get());
+        //Map<Local, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(view.getMethod(mainMethodEntryPoints.get(0)).get())
+        //                                                                 .stream().findFirst().get());
         log.info("RESULT: {} = {}", result.keySet().stream().findFirst().get(), result.values().stream().findFirst().get());
         log.info("End of inter-procedural analysis");
     }
 
-    private List<MethodSignature> getEntryPoints() {
-        ExcelWriterPort excelWriter = new ExcelWriterAdapter("CallGraph_EntryPoints", false);
+    private List<MethodSignature> getMainMethodEntryPoints() {
+        /*ExcelWriterPort excelWriter = new ExcelWriterAdapter("CallGraph_EntryPoints", false);
         excelWriter.setHeaders("Name", "No of entry points", "entryPoints");
-        Map<String, Object[]> excelData = new LinkedHashMap<>();
+        Map<String, Object[]> excelData = new LinkedHashMap<>();*/
         Collection<MethodSignature> entryPoints = view.getClasses()
                 .flatMap(sootClass -> sootClass.getMethods().stream())
                 .filter(sootMethod -> sootMethod.isMain(view.getIdentifierFactory()))//.getSubSignature().equals(buildMethodSignature("java.lang.String", "<init>", "void", Arrays.asList("char[]"), view);))
                 .map(SootMethod::getSignature)
                 .collect(Collectors.toSet());
-        excelData.put(jarName,new Object[]{jarName, });
-        excelWriter.saveData(excelData);
+        /*excelData.put(jarName,new Object[]{jarName, });
+        excelWriter.saveData(excelData);*/
         if(entryPoints.size() !=1 ) {
             throw new RuntimeException("No single entry point. No. of entry points = " + entryPoints.size());
         }
