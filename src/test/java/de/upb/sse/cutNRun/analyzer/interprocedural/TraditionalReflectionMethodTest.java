@@ -47,8 +47,15 @@ class TraditionalReflectionMethodTest {
     }
 
     @Test
-    public void shouldAnalyzeSimpleInterProceduralReflectionCallMethodParameters() {
+    public void shouldAnalyzeSimpleMethodParameters() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/parameter"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeSimpleReturnFromMethod() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/returnFromMethod"));
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }

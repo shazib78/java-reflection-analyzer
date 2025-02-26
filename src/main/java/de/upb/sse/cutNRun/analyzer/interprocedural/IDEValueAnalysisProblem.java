@@ -17,15 +17,13 @@ import sootup.analysis.interprocedural.ide.DefaultJimpleIDETabulationProblem;
 import sootup.core.jimple.basic.Immediate;
 import sootup.core.jimple.basic.Local;
 import sootup.core.jimple.basic.Value;
+import sootup.core.jimple.common.constant.IntConstant;
 import sootup.core.jimple.common.constant.StringConstant;
 import sootup.core.jimple.common.expr.*;
 import sootup.core.jimple.common.ref.JArrayRef;
 import sootup.core.jimple.common.ref.JFieldRef;
 import sootup.core.jimple.common.ref.JParameterRef;
-import sootup.core.jimple.common.stmt.JAssignStmt;
-import sootup.core.jimple.common.stmt.JIdentityStmt;
-import sootup.core.jimple.common.stmt.JInvokeStmt;
-import sootup.core.jimple.common.stmt.Stmt;
+import sootup.core.jimple.common.stmt.*;
 import sootup.core.model.LinePosition;
 import sootup.core.model.SootMethod;
 import sootup.core.signatures.MethodSignature;
@@ -77,6 +75,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
         this.isModernFieldReflection = false;
         this.stringConcatenationSource = StringConcatenationSource.builder().build();
     }
+
     @Override
     public int numThreads() {
         return 1;
@@ -166,52 +165,167 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
             @Override
             public EdgeFunction<String> getCallEdgeFunction(Stmt callStmt, Local srcNode, SootMethod destinationMethod, Local destNode) {
                 log.info("EDGE getCallEdgeFunction callStmt: " + callStmt.toString());
+                if (callStmt != null) {
+                    if (callStmt instanceof AbstractDefinitionStmt) {
+                        AbstractDefinitionStmt defnStmt = (AbstractDefinitionStmt) callStmt;
+                        Value leftOp = defnStmt.getLeftOp();
+                        if (leftOp == srcNode) {
+                            Stmt destMethodFirstStmt = icfg.getStartPointsOf(destinationMethod).stream().findFirst().get();//dest.getBody().getStmtGraph().
+
+                            if (destMethodFirstStmt instanceof JReturnStmt) {
+                                JReturnStmt returnStmt = (JReturnStmt) destMethodFirstStmt;
+                                Value returnStmtOpValue = returnStmt.getOp();
+                            /*return new FlowFunction<Local>() {
+                                @Override
+                                public Set<Local> computeTargets(Local source) {
+                                    if (source == leftOp) {
+                                        if(returnStmtOpValue instanceof StringConstant) {
+                                            return Collections.singleton(hardCoddedResult);
+                                        }
+                                    }
+                                }
+                            };*/
+                                if (hardCoddedResult.equivTo(destNode)) { //this condition would by default mean returnStmtOpValue is StringConstant
+                                    StringConstant hardcodedValue = (StringConstant) returnStmtOpValue;
+                                    return new EdgeFunction<String>() {
+                                        @Override
+                                        public String computeTarget(String source) {
+                                            return hardcodedValue.getValue();
+                                        }
+
+                                        @Override
+                                        public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                            return new EdgeFunctionComposer(secondFunction, this);
+                                        }
+
+                                        @Override
+                                        public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                            if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                                return otherFunction;
+                                            } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                                return this;
+                                            } else {
+                                                return this;
+                                            }
+                                        }
+
+                                        @Override
+                                        public boolean equalTo(EdgeFunction<String> other) {
+                                            return this == other;
+                                        }
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
                 return EdgeIdentity.v();
             }
 
             @Override
-            public EdgeFunction<String> getReturnEdgeFunction(Stmt callSite, SootMethod calleeMethod, Stmt exitStmt, Local exitNode, Stmt returnSite, Local retNode) {
+            public EdgeFunction<String> getReturnEdgeFunction(Stmt callSite, SootMethod calleeMethod, Stmt exitStmt,
+                                                              Local exitNode, Stmt returnSite, Local retNode) {
                 log.info("EDGE getReturnEdgeFunction callSite: " + callSite.toString());
+                if (callSite != null) {
+                    AbstractInvokeExpr ie = getAbstractInvokeExpr(callSite);//s.getInvokeExpr();
+                    final List<Immediate> callArgs = ie.getArgs();
+                    final List<Immediate> paramLocals = new ArrayList<>(callArgs.size());
+                    for (int i = 0; i < calleeMethod.getParameterCount(); i++) {
+                        paramLocals.add(calleeMethod.getBody().getParameterLocal(i));
+                    }
+                    //ignore implicit calls to static initializers
+                    if (/*dest.getName().equals("<clinit>") &&*/ callArgs.size() == 0) {
+                        //TODO: write logic
+                        //return Collections.emptySet();
+                    }
+                    Set<Local> res = new HashSet<>();
+                    for (int i = 0; i < paramLocals.size(); i++) {
+                        // Special case: check if function is called with integer literals as params
+                                /*if (paramLocals.get(i) instanceof StringConstant && source == zeroValue()) {
+                                    res.add((Local) callArgs.get(i));
+                                }*/
+                        // Ordinary case: just perform the mapping
+                        if (paramLocals.get(i) == exitNode) {
+                            if (!(callArgs.get(i) instanceof StringConstant)) {
+                                return EdgeIdentity.v();
+                            } else {
+                                // Special case: check if function is called with integer literals as params
+                                if (hardCoddedResult.equivTo(retNode)) {
+                                    StringConstant hardcodedValue = (StringConstant) callArgs.get(i);
+                                    return new EdgeFunction<String>() {
+                                        @Override
+                                        public String computeTarget(String source) {
+                                            return hardcodedValue.getValue();
+                                        }
+
+                                        @Override
+                                        public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                            return new EdgeFunctionComposer(secondFunction, this);
+                                        }
+
+                                        @Override
+                                        public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                            if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                                return otherFunction;
+                                            } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                                return this;
+                                            } else {
+                                                return this;
+                                            }
+                                        }
+
+                                        @Override
+                                        public boolean equalTo(EdgeFunction<String> other) {
+                                            return this == other;
+                                        }
+                                    };
+                                }
+                            }
+                        }
+                    }
+                    //return res;
+                }
                 return EdgeIdentity.v();
             }
 
             @Override
             public EdgeFunction<String> getCallToReturnEdgeFunction(Stmt callStmt, Local callNode, Stmt returnSite, Local returnSideNode) {
                 log.info("EDGE getCallToReturnEdgeFunction callStmt: " + callStmt.toString());
-                if(hardCoddedResult.equivTo(returnSideNode)) {
+                if (hardCoddedResult.equivTo(returnSideNode) && callStmt.equivTo(startStmt)) {
                     JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callStmt);
-                    Immediate argument = jVirtualInvokeExpr.getArg(0);
-                    if (argument instanceof StringConstant) {
-                        StringConstant hardcodedValue = (StringConstant) argument;
-                        return new EdgeFunction<String>() {
-                            @Override
-                            public String computeTarget(String source) {
-                                return hardcodedValue.getValue();
-                            }
 
-                            @Override
-                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
-                                return new EdgeFunctionComposer(secondFunction, this);
-                            }
-
-                            @Override
-                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
-                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
-                                    return otherFunction;
-                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
-                                    return this;
-                                } else {
-                                    return this;
+                        Immediate argument = jVirtualInvokeExpr.getArg(0);
+                        if (argument instanceof StringConstant) {
+                            StringConstant hardcodedValue = (StringConstant) argument;
+                            return new EdgeFunction<String>() {
+                                @Override
+                                public String computeTarget(String source) {
+                                    return hardcodedValue.getValue();
                                 }
-                            }
 
-                            @Override
-                            public boolean equalTo(EdgeFunction<String> other) {
-                                return this == other;
-                            }
-                        };
+                                @Override
+                                public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                    return new EdgeFunctionComposer(secondFunction, this);
+                                }
+
+                                @Override
+                                public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                    if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                        return otherFunction;
+                                    } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                        return this;
+                                    } else {
+                                        return this;
+                                    }
+                                }
+
+                                @Override
+                                public boolean equalTo(EdgeFunction<String> other) {
+                                    return this == other;
+                                }
+                            };
+                        }
                     }
-                }
                 return EdgeIdentity.v();
             }
         };
@@ -222,7 +336,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
         return new FlowFunctions<Stmt, Local, SootMethod>() {
             @Override
             public FlowFunction<Local> getNormalFlowFunction(Stmt curr, Stmt succ) {
-                log.info("getNormalFlowFunction: "+curr.toString());
+                log.info("getNormalFlowFunction: " + curr.toString());
                 if (isTraditionalReflection) {
                     if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
                         return analyzeMethodAndFieldReflection(null /*out*/, curr, false);
@@ -243,20 +357,81 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
 
             @Override
             public FlowFunction<Local> getCallFlowFunction(Stmt callStmt, SootMethod dest) {
-                log.info("getCallFlowFunction: "+callStmt.toString());
-                return  Identity.v();
+                log.info("getCallFlowFunction: " + callStmt.toString());
+                if (callStmt != null) {
+                    if (callStmt instanceof AbstractDefinitionStmt) {
+                        AbstractDefinitionStmt defnStmt = (AbstractDefinitionStmt) callStmt;
+                        Value leftOp = defnStmt.getLeftOp();
+                        Stmt destMethodFirstStmt = icfg.getStartPointsOf(dest).stream().findFirst().get();//dest.getBody().getStmtGraph().
+                        AbstractInvokeExpr ie = getAbstractInvokeExpr(callStmt);
+                        if (destMethodFirstStmt instanceof JReturnStmt) {
+                            JReturnStmt returnStmt = (JReturnStmt) destMethodFirstStmt;
+                            Value returnStmtOpValue = returnStmt.getOp();
+                            return new FlowFunction<Local>() {
+                                @Override
+                                public Set<Local> computeTargets(Local source) {
+                                    if (source == leftOp) {
+                                        if (returnStmtOpValue instanceof StringConstant) {
+                                            return Collections.singleton(hardCoddedResult);
+                                        } else {
+                                            return Collections.singleton((Local) returnStmtOpValue);
+                                        }
+                                    }
+                                    return Collections.emptySet();
+                                }
+                            };
+                        }
+                    }
+                }
+                return Identity.v();
             }
 
             @Override
             public FlowFunction<Local> getReturnFlowFunction(Stmt callSite, SootMethod calleeMethod, Stmt exitStmt, Stmt returnSite) {
                 log.info("getReturnFlowFunction: " + returnSite);
-                return  Identity.v();
+                //Stmt s = callStmt;
+                if (callSite != null) {
+                    AbstractInvokeExpr ie = getAbstractInvokeExpr(callSite);//s.getInvokeExpr();
+                    final List<Immediate> callArgs = ie.getArgs();
+                    final List<Immediate> paramLocals = new ArrayList<>(callArgs.size());
+                    for (int i = 0; i < calleeMethod.getParameterCount(); i++) {
+                        paramLocals.add(calleeMethod.getBody().getParameterLocal(i));
+                    }
+                    return new FlowFunction<Local>() {
+                        @Override
+                        public Set<Local> computeTargets(Local source) {
+                            //ignore implicit calls to static initializers
+                            if (/*dest.getName().equals("<clinit>") &&*/ callArgs.size() == 0) {
+                                //TODO: write logic
+                                return Collections.emptySet();
+                            }
+                            Set<Local> res = new HashSet<>();
+                            for (int i = 0; i < paramLocals.size(); i++) {
+                                // Special case: check if function is called with integer literals as params
+                                /*if (paramLocals.get(i) instanceof StringConstant && source == zeroValue()) {
+                                    res.add((Local) callArgs.get(i));
+                                }*/
+                                // Ordinary case: just perform the mapping
+                                if (paramLocals.get(i) == source) {
+                                    if (!(callArgs.get(i) instanceof StringConstant)) {
+                                        res.add((Local) callArgs.get(i));
+                                    } else {
+                                        // Special case: check if function is called with integer literals as params
+                                        res.add(hardCoddedResult);
+                                    }
+                                }
+                            }
+                            return res;
+                        }
+                    };
+                }
+                return Identity.v();
             }
 
             @Override
             public FlowFunction<Local> getCallToReturnFlowFunction(Stmt callSite, Stmt returnSite) {
-                log.info("getCallToReturnFlowFunction: "+callSite.toString());
-                if(callSite.equivTo(startStmt)){
+                log.info("getCallToReturnFlowFunction: " + callSite.toString());
+                if (callSite.equivTo(startStmt)) {
                     /*JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callSite);
                     Immediate argument = jVirtualInvokeExpr.getArg(0);
                     if (argument instanceof StringConstant) {
@@ -377,8 +552,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
                     if (source != zeroValue() && (leftOp.equivTo(source) ||
                             (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp)))) {
                         if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
-                            //TODO: write logic
-                            //setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                            //res.add((Local) rightOp);//setResultArgumentSource(METHOD_PARAMETER, stmt, out);
                         } else if (!stringConcatenationSource.isEmpty()) {
                             updateStringConcatenationSource(leftOp, rightOp, stmt, out);
                         }
@@ -386,10 +560,10 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
                     return res;
                 }
             };
-        } else if (stmt instanceof JInvokeStmt){
+        } else if (stmt instanceof JInvokeStmt) {
             JInvokeStmt jInvokeStmt = (JInvokeStmt) stmt;
             AbstractInvokeExpr abstractInvokeExpr = jInvokeStmt.getInvokeExpr().orElse(null);
-            if(abstractInvokeExpr instanceof JSpecialInvokeExpr){
+            if (abstractInvokeExpr instanceof JSpecialInvokeExpr) {
                 JSpecialInvokeExpr jSpecialInvokeExpr = (JSpecialInvokeExpr) abstractInvokeExpr;
                 Local baseVariable = jSpecialInvokeExpr.getBase();
                 List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
@@ -401,11 +575,11 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
                         if (source != zeroValue() && (baseVariable.equivTo(source) ||
                                 (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(baseVariable)))) {
                             MethodSignature specialInvokeMethodSignature = jSpecialInvokeExpr.getMethodSignature();
-                            if(isNewStringObjectCreationSignature(specialInvokeMethodSignature, view)){
+                            if (isNewStringObjectCreationSignature(specialInvokeMethodSignature, view)) {
                                 Value parameter = jSpecialInvokeExpr.getArg(0);
-                                if (parameter instanceof Local){
+                                if (parameter instanceof Local) {
                                     res.add((Local) parameter); //result.setTrackVariable((Local) parameter);
-                                } else if(parameter instanceof StringConstant && stringConcatenationSource.isEmpty()) {
+                                } else if (parameter instanceof StringConstant && stringConcatenationSource.isEmpty()) {
                                     res.add((Local) parameter); //setResultArgumentSource(LOCAL, stmt, out);
                                 } else if (!stringConcatenationSource.isEmpty()) {
                                     updateStringConcatenationSource(baseVariable, parameter, stmt, out);
@@ -449,7 +623,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
             LinePosition linePosition;// = (LinePosition) stmt.getPositionInfo().getStmtPosition();
             try {
                 linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
-            } catch (Exception e){
+            } catch (Exception e) {
                 linePosition = null;
                 e.printStackTrace();
             }

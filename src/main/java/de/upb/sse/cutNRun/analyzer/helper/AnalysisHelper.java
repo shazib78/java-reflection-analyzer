@@ -33,6 +33,23 @@ public class AnalysisHelper {
         return null;
     }
 
+    public static AbstractInvokeExpr getAbstractInvokeExpr(Stmt stmt) {
+        if (stmt instanceof JInvokeStmt) {
+            JInvokeStmt jInvokeStmt = (JInvokeStmt) stmt;
+            return jInvokeStmt.getInvokeExpr().orElse(null);
+            /*if (abstractInvokeExpr instanceof JVirtualInvokeExpr) {
+                return (JVirtualInvokeExpr) abstractInvokeExpr;
+            }*/
+        } else if (stmt instanceof JAssignStmt) {
+            JAssignStmt jAssignStmt = (JAssignStmt) stmt;
+            Value rightOp = jAssignStmt.getRightOp();
+            if (rightOp instanceof AbstractInvokeExpr) {
+                return (AbstractInvokeExpr) rightOp;
+            }
+        }
+        return null;
+    }
+
     public static boolean isNewStringObjectCreationSignature(MethodSignature specialInvokeMethodSignature, View view) {
         MethodSignature StringConstructor = buildMethodSignature("java.lang.String", "<init>", "void",
                                                                  Arrays.asList("java.lang.String"), view);
@@ -89,5 +106,10 @@ public class AnalysisHelper {
     public static boolean isModernFieldReflection(MethodSignature methodSignature, View view) {
         ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
         return modernReflection.isFieldReflection(methodSignature);
+    }
+
+    public static boolean isModernReflection(MethodSignature methodSignature, View view) {
+        ModernReflectionMethodSignature modernReflection = new ModernReflectionMethodSignature(view);
+        return modernReflection.isSourceOfUnsoundness(methodSignature);
     }
 }
