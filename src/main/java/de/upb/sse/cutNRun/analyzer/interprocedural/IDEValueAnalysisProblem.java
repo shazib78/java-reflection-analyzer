@@ -17,6 +17,7 @@ import sootup.analysis.interprocedural.ide.DefaultJimpleIDETabulationProblem;
 import sootup.core.jimple.basic.Immediate;
 import sootup.core.jimple.basic.Local;
 import sootup.core.jimple.basic.Value;
+import sootup.core.jimple.common.constant.ClassConstant;
 import sootup.core.jimple.common.constant.IntConstant;
 import sootup.core.jimple.common.constant.StringConstant;
 import sootup.core.jimple.common.expr.*;
@@ -291,7 +292,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
             @Override
             public EdgeFunction<String> getCallToReturnEdgeFunction(Stmt callStmt, Local callNode, Stmt returnSite, Local returnSideNode) {
                 log.info("EDGE getCallToReturnEdgeFunction callStmt: " + callStmt.toString());
-                if (hardCoddedResult.equivTo(returnSideNode) && callStmt.equivTo(startStmt)) {
+                /*if (hardCoddedResult.equivTo(returnSideNode) && callStmt.equivTo(startStmt)) {
                     JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callStmt);
 
                         Immediate argument = jVirtualInvokeExpr.getArg(0);
@@ -325,7 +326,109 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
                                 }
                             };
                         }
+                    }*/
+
+                Immediate argument = null;
+                if (callStmt.equivTo(startStmt)) {
+                    JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callStmt);
+                    if (isTraditionalReflection) {
+                        if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                            //return analyzeMethodAndFieldReflection(null /*out*/, callSite, false);
+                            /*if (false*//*isModernReflection*//*) {
+                                argument = jVirtualInvokeExpr.getArg(1);
+                            } else {*/
+                            argument = jVirtualInvokeExpr.getArg(0);
+                            /*}
+                            if (argument instanceof StringConstant) {
+                                return new Gen(hardCoddedResult, zeroValue()); //setResultArgumentSource(LOCAL, stmt, out);
+                            } else if (argument instanceof Local) {
+                                return new Gen(argument, zeroValue()); //result.setTrackVariable((Local) argument);
+                            }*/
+                        } else if (isTraditionalNewInstanceReflection) {
+                            //TODO: write logic - may not be required
+                            //return analyzeNewInstanceReflection(out, stmt, false);
+                            /*if (isModernReflection) {
+                                immediate = jVirtualInvokeExpr.getArg(0);
+                            } else {*/
+                                argument = jVirtualInvokeExpr.getBase();
+                            //}
+                        }
+                    } else {
+                        if (isModernMethodReflection || isModernFieldReflection) {
+                            argument = jVirtualInvokeExpr.getArg(1); //return analyzeMethodAndFieldReflection(null /*out*/, callSite, true);
+                        } else if (isModernNewInstanceReflection) {
+                            //TODO: write logic  - may not be required
+                            //return analyzeNewInstanceReflection(out, stmt, true);
+                            /*if (isModernReflection) {*/
+                                argument = jVirtualInvokeExpr.getArg(0);
+                            /*} else {
+                                immediate = jVirtualInvokeExpr.getBase();
+                            }*/
+                        }
                     }
+
+
+                    if (argument instanceof StringConstant) {
+                        StringConstant hardcodedValue = (StringConstant) argument;
+                        return new EdgeFunction<String>() {
+                            @Override
+                            public String computeTarget(String source) {
+                                return hardcodedValue.getValue();
+                            }
+
+                            @Override
+                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                return new EdgeFunctionComposer(secondFunction, this);
+                            }
+
+                            @Override
+                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                    return otherFunction;
+                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                    return this;
+                                } else {
+                                    return this;
+                                }
+                            }
+
+                            @Override
+                            public boolean equalTo(EdgeFunction<String> other) {
+                                return this == other;
+                            }
+                        };
+                    } else if (argument instanceof ClassConstant) {
+                        ClassConstant hardcodedValue = (ClassConstant) argument;
+                        return new EdgeFunction<String>() {
+                            @Override
+                            public String computeTarget(String source) {
+                                return hardcodedValue.getValue();
+                            }
+
+                            @Override
+                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                return new EdgeFunctionComposer(secondFunction, this);
+                            }
+
+                            @Override
+                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                    return otherFunction;
+                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                    return this;
+                                } else {
+                                    return this;
+                                }
+                            }
+
+                            @Override
+                            public boolean equalTo(EdgeFunction<String> other) {
+                                return this == other;
+                            }
+                        };
+                    }
+                }
+
                 return EdgeIdentity.v();
             }
         };
@@ -528,6 +631,8 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<L
                             //setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
                         } else if (rightOp instanceof JFieldRef && stringConcatenationSource.isEmpty()) {
                             //TODO: write logic
+                            JFieldRef jFieldRef = (JFieldRef) rightOp;
+                            jFieldRef.getFieldSignature();
                             //setResultArgumentSource(FIELD, stmt, out);
                         } else if (rightOp instanceof StringConstant && stringConcatenationSource.isEmpty()) {
                             res.add((Local) rightOp); //setResultArgumentSource(LOCAL, stmt, out);

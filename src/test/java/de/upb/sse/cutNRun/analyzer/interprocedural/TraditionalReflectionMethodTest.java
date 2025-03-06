@@ -60,6 +60,20 @@ class TraditionalReflectionMethodTest {
         programAnalyzerPort.analyze();
     }
 
+    @Test
+    public void shouldAnalyzeNonStaticFieldAccess() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/sameClass/nonStaticField"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeFieldAccess() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/sameClass/staticField"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
     /*@Test
     public void shouldAnalyzeTestFile1() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/File1"));
