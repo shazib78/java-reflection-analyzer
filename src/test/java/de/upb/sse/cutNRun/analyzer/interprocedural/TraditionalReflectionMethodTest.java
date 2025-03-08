@@ -68,7 +68,7 @@ class TraditionalReflectionMethodTest {
     }
 
     @Test
-    public void shouldAnalyzeFieldAccess() {
+    public void shouldAnalyzeStaticFieldAccess() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/sameClass/staticField"));
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();

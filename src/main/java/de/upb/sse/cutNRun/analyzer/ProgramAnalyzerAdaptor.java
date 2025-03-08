@@ -176,12 +176,17 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         //TODO: testing end
 
         IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(backwardICFG, startMethod, startStmt, (JavaView) view);
-        JimpleIDESolver<Local, String, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
+        JimpleIDESolver<Value, String, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
         solver.solve();
-        Map<Local, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(methodWithReflection).stream().findFirst().get());
+        Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(problem.getMethodConsistingResult())
+                                                                 .stream().findFirst().get());
+        /*Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(methodWithReflection).stream().findFirst().get());*/
         //Map<Local, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(view.getMethod(mainMethodEntryPoints.get(0)).get())
         //                                                                 .stream().findFirst().get());
-        log.info("RESULT: {} = {}", result.keySet().stream().findFirst().get(), result.values().stream().findFirst().get());
+        for (Value key: result.keySet()) {
+            log.info("RESULT: {} = {}", key, result.get(key));
+        }
+        //log.info("RESULT: {} = {}", result.keySet().stream().findFirst().get(), result.values().stream().findFirst().get());
         log.info("End of inter-procedural analysis");
     }
 
