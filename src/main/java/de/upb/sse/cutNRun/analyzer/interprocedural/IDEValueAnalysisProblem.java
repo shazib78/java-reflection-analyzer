@@ -205,35 +205,67 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                                 }
                             };*/
                                 if (hardCoddedResult.equivTo(destNode)) { //this condition would by default mean returnStmtOpValue is StringConstant
-                                    methodConsistingResult = destinationMethod;
-                                    StringConstant hardcodedValue = (StringConstant) returnStmtOpValue;
-                                    return new EdgeFunction<String>() {
-                                        @Override
-                                        public String computeTarget(String source) {
-                                            return hardcodedValue.getValue();
-                                        }
-
-                                        @Override
-                                        public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
-                                            return new EdgeFunctionComposer(secondFunction, this);
-                                        }
-
-                                        @Override
-                                        public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
-                                            if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
-                                                return otherFunction;
-                                            } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
-                                                return this;
-                                            } else {
-                                                return this;
+                                    if (returnStmtOpValue instanceof StringConstant) {
+                                        methodConsistingResult = destinationMethod;
+                                        StringConstant hardcodedValue = (StringConstant) returnStmtOpValue;
+                                        return new EdgeFunction<String>() {
+                                            @Override
+                                            public String computeTarget(String source) {
+                                                return hardcodedValue.getValue();
                                             }
-                                        }
 
-                                        @Override
-                                        public boolean equalTo(EdgeFunction<String> other) {
-                                            return this == other;
-                                        }
-                                    };
+                                            @Override
+                                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                                    return otherFunction;
+                                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<String> other) {
+                                                return this == other;
+                                            }
+                                        };
+                                    } else if (returnStmtOpValue instanceof ClassConstant) {
+                                        methodConsistingResult = destinationMethod;
+                                        ClassConstant hardcodedValue = (ClassConstant) returnStmtOpValue;
+                                        return new EdgeFunction<String>() {
+                                            @Override
+                                            public String computeTarget(String source) {
+                                                return hardcodedValue.getValue();
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                                    return otherFunction;
+                                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<String> other) {
+                                                return this == other;
+                                            }
+                                        };
+                                    }
                                 }
                             }
                         }
@@ -266,40 +298,73 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                                 }*/
                         // Ordinary case: just perform the mapping
                         if (paramLocals.get(i) == exitNode) {
-                            if (!(callArgs.get(i) instanceof StringConstant)) {
+                            if (!(callArgs.get(i) instanceof StringConstant || callArgs.get(i) instanceof ClassConstant)) {
                                 return EdgeIdentity.v();
                             } else {
                                 // Special case: check if function is called with integer literals as params
                                 if (hardCoddedResult.equivTo(retNode)) {
-                                    methodConsistingResult = icfg.getMethodOf(callSite);
-                                    StringConstant hardcodedValue = (StringConstant) callArgs.get(i);
-                                    return new EdgeFunction<String>() {
-                                        @Override
-                                        public String computeTarget(String source) {
-                                            return hardcodedValue.getValue();
-                                        }
-
-                                        @Override
-                                        public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
-                                            return new EdgeFunctionComposer(secondFunction, this);
-                                        }
-
-                                        @Override
-                                        public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
-                                            if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
-                                                return otherFunction;
-                                            } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
-                                                return this;
-                                            } else {
-                                                return this;
+                                    if (callArgs.get(i) instanceof StringConstant) {
+                                        methodConsistingResult = icfg.getMethodOf(callSite);
+                                        StringConstant hardcodedValue = (StringConstant) callArgs.get(i);
+                                        return new EdgeFunction<String>() {
+                                            @Override
+                                            public String computeTarget(String source) {
+                                                return hardcodedValue.getValue();
                                             }
-                                        }
 
-                                        @Override
-                                        public boolean equalTo(EdgeFunction<String> other) {
-                                            return this == other;
-                                        }
-                                    };
+                                            @Override
+                                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                                    return otherFunction;
+                                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<String> other) {
+                                                return this == other;
+                                            }
+                                        };
+                                    } else if (callArgs.get(i) instanceof ClassConstant) {
+                                        methodConsistingResult = icfg.getMethodOf(callSite);
+                                        ClassConstant hardcodedValue = (ClassConstant) callArgs.get(i);
+                                        return new EdgeFunction<String>() {
+                                            @Override
+                                            public String computeTarget(String source) {
+                                                return hardcodedValue.getValue();
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                                    return otherFunction;
+                                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<String> other) {
+                                                return this == other;
+                                            }
+                                        };
+                                    }
+
                                 }
                             }
                         }
@@ -649,12 +714,23 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
         if (hardCoddedResult.equivTo(tgtNode)) {
             if (stmt instanceof JAssignStmt) {
                 JAssignStmt jAssignStmt = (JAssignStmt) stmt;
-                Value leftOp = jAssignStmt.getLeftOp();
+                Value leftOpTemp = jAssignStmt.getLeftOp();
                 Value rightOpTemp = jAssignStmt.getRightOp();
                 if (rightOpTemp instanceof JCastExpr) {
                     JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
                     rightOpTemp = jCastExpr.getOp();
                 }
+                if(rightOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                    rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }
+                if(leftOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                    leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }
+                final Value leftOp = leftOpTemp;
                 final Value rightOp = rightOpTemp;
                 //List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
                 //To handle aliases, string concatenation, method return value source
@@ -813,6 +889,8 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                                     if (source == leftOp) {
                                         if (returnStmtOpValue instanceof StringConstant) {
                                             return Collections.singleton(hardCoddedResult);
+                                        } else if (returnStmtOpValue instanceof ClassConstant) {
+                                            return Collections.singleton(hardCoddedResult);
                                         } else {
                                             return Collections.singleton((Local) returnStmtOpValue);
                                         }
@@ -853,7 +931,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                                 }*/
                                     // Ordinary case: just perform the mapping
                                     if (paramLocals.get(i) == source) {
-                                        if (!(callArgs.get(i) instanceof StringConstant)) {
+                                        if (!(callArgs.get(i) instanceof StringConstant || callArgs.get(i) instanceof ClassConstant)) {
                                             res.add((Local) callArgs.get(i));
                                         } else {
                                             // Special case: check if function is called with integer literals as params
