@@ -22,6 +22,7 @@ import sootup.core.jimple.common.constant.StringConstant;
 import sootup.core.jimple.common.expr.*;
 import sootup.core.jimple.common.ref.JArrayRef;
 import sootup.core.jimple.common.ref.JFieldRef;
+import sootup.core.jimple.common.ref.JInstanceFieldRef;
 import sootup.core.jimple.common.ref.JParameterRef;
 import sootup.core.jimple.common.stmt.*;
 import sootup.core.model.LinePosition;
@@ -149,7 +150,9 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                     return right;
                 } else if (right == TOP && left != BOTTOM) {
                     return left;
-                } else {
+                }/* else if ((left != TOP && left != BOTTOM) && (right != TOP && right != BOTTOM)) {
+                    return left + ", " + right;
+                }*/ else {
                     return BOTTOM;
                 }
             }
@@ -446,6 +449,20 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                             }
                         };
                     }
+                } else {
+                    if (isTraditionalReflection) {
+                        if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                            return createEdgeFunctionsForMethodAndFieldReflection(callStmt, callNode, returnSideNode);
+                        } else if (isTraditionalNewInstanceReflection) {
+                            return createEdgeFunctionsForNewInstanceReflection(callStmt, callNode, returnSideNode);
+                        }
+                    } else {
+                        if (isModernMethodReflection || isModernFieldReflection) {
+                            return createEdgeFunctionsForMethodAndFieldReflection(callStmt, callNode, returnSideNode);
+                        } else if (isModernNewInstanceReflection) {
+                            return createEdgeFunctionsForNewInstanceReflection(callStmt, callNode, returnSideNode);
+                        }
+                    }
                 }
 
                 return EdgeIdentity.v();
@@ -457,7 +474,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
         if (hardCoddedResult.equivTo(tgtNode)) {
             if (stmt instanceof JAssignStmt) {
                 JAssignStmt jAssignStmt = (JAssignStmt) stmt;
-                Value leftOp = jAssignStmt.getLeftOp();
+                Value leftOpTemp = jAssignStmt.getLeftOp();
                 Value rightOpTemp = jAssignStmt.getRightOp();
                 if (rightOpTemp instanceof JCastExpr) {
                     JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
@@ -467,6 +484,17 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                     JArrayRef jArrayRef = (JArrayRef) rightOpTemp;
                     rightOpTemp = jArrayRef.getBase();
                 }
+                if(rightOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                    rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }
+                if(leftOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                    leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }
+                final Value leftOp = leftOpTemp;
                 final Value rightOp = rightOpTemp;
                 List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
                 //To handle aliases, string concatenation, method return value source
@@ -640,25 +668,60 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                     StringConcatenationProcessor stringConcatenationProcessor =
                             new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
                     stringConcatenationProcessor.process(rightOp);
-                }*//* else if (*//*(*//*rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr*//*)
-                        && stringConcatenationSource.isEmpty()*//*) {
+                } else*/ if (/*(*/rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr/*)
+                        && stringConcatenationSource.isEmpty()*/) {
                                 AbstractInvokeExpr abstractInvokeExpr = (AbstractInvokeExpr) rightOp;
-                                MethodSignature getConstructorMethodSignature = buildGetConstructorMethodSignature();
-                                if (getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
+                                //MethodSignature getConstructorMethodSignature = buildGetConstructorMethodSignature();
+                                MethodSignature classForNameMethodSignature = buildClassForNameMethodSignature();
+                                /*if (getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
                                     Local local = getJVirtualInvokeExpr(stmt).getBase();
                                     if (local instanceof Local) {
                                         res.add((Local) local);//result.setTrackVariable((Local) local);
+                                    }
+                                } else*/ if (classForNameMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
+                                    Immediate local = ((JStaticInvokeExpr) getAbstractInvokeExpr(stmt)).getArg(0);
+                                    /*if (local instanceof Local) {
+                                        res.add((Local) local);
+                                    } else */if (local instanceof StringConstant) {
+                                        methodConsistingResult = icfg.getMethodOf(stmt);
+                                        StringConstant hardcodedValue = (StringConstant) local;
+                                        return new EdgeFunction<String>() {
+                                            @Override
+                                            public String computeTarget(String source) {
+                                                return hardcodedValue.getValue();
+                                            }
+                                            @Override
+                                            public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                                if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                                    return otherFunction;
+                                                } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<String> other) {
+                                                return this == other;
+                                            }
+                                        };
                                     }
                                 } else {
                                     //TODO: write logic
                                     //setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
                                 }
-                            } else if (rightOp instanceof JFieldRef *//*&& stringConcatenationSource.isEmpty()*//*) {
+                            }/* else if (rightOp instanceof JFieldRef && stringConcatenationSource.isEmpty()) {
                                 res.add(rightOp);//setResultArgumentSource(FIELD, stmt, out);
-                            } else*/ if (rightOp instanceof ClassConstant /*&& stringConcatenationSource.isEmpty()*/) {
+                            }*/ else if (rightOp instanceof ClassConstant /*&& stringConcatenationSource.isEmpty()*/) {
                                 //res.add(hardCoddedResult);//setResultArgumentSource(LOCAL, stmt, out);
                                 methodConsistingResult = icfg.getMethodOf(stmt);
-                                StringConstant hardcodedValue = (StringConstant) rightOp;
+                                ClassConstant hardcodedValue = (ClassConstant) rightOp;
                                 return new EdgeFunction<String>() {
                                     @Override
                                     public String computeTarget(String source) {
@@ -835,19 +898,19 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                             isModernFieldReflection = true;
                         }
                     }
+                }
 
-                    if (isTraditionalReflection) {
-                        if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
-                            return analyzeMethodAndFieldReflection(null /*out*/, callSite, false);
-                        } else if (isTraditionalNewInstanceReflection) {
-                            return analyzeNewInstanceReflection(null /*out*/, callSite, false);
-                        }
-                    } else {
-                        if (isModernMethodReflection || isModernFieldReflection) {
-                            return analyzeMethodAndFieldReflection(null /*out*/, callSite, true);
-                        } else if (isModernNewInstanceReflection) {
-                            return analyzeNewInstanceReflection(null /*out*/, callSite, true);
-                        }
+                if (isTraditionalReflection) {
+                    if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                        return analyzeMethodAndFieldReflection(null /*out*/, callSite, false);
+                    } else if (isTraditionalNewInstanceReflection) {
+                        return analyzeNewInstanceReflection(null /*out*/, callSite, false);
+                    }
+                } else {
+                    if (isModernMethodReflection || isModernFieldReflection) {
+                        return analyzeMethodAndFieldReflection(null /*out*/, callSite, true);
+                    } else if (isModernNewInstanceReflection) {
+                        return analyzeNewInstanceReflection(null /*out*/, callSite, true);
                     }
                 }
                 return Identity.v();
@@ -871,7 +934,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
             }
         } else if (stmt instanceof JAssignStmt) {
             JAssignStmt jAssignStmt = (JAssignStmt) stmt;
-            Value leftOp = jAssignStmt.getLeftOp();
+            Value leftOpTemp = jAssignStmt.getLeftOp();
             Value rightOpTemp = jAssignStmt.getRightOp();
             if (rightOpTemp instanceof JCastExpr) {
                 JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
@@ -881,6 +944,17 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                 JArrayRef jArrayRef = (JArrayRef) rightOpTemp;
                 rightOpTemp = jArrayRef.getBase();
             }
+            if(rightOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }
+            if(leftOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }
+            final Value leftOp = leftOpTemp;
             final Value rightOp = rightOpTemp;
             List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
             //To handle aliases, string concatenation, method return value source
@@ -992,12 +1066,23 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
             }
         } else if (stmt instanceof JAssignStmt) {
             JAssignStmt jAssignStmt = (JAssignStmt) stmt;
-            Value leftOp = jAssignStmt.getLeftOp();
+            Value leftOpTemp = jAssignStmt.getLeftOp();
             Value rightOpTemp = jAssignStmt.getRightOp();
             if (rightOpTemp instanceof JCastExpr) {
                 JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
                 rightOpTemp = jCastExpr.getOp();
             }
+            if(rightOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }
+            if(leftOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }
+            final Value leftOp = leftOpTemp;
             final Value rightOp = rightOpTemp;
             //List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
             //To handle aliases, string concatenation, method return value source
@@ -1020,10 +1105,18 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                         && stringConcatenationSource.isEmpty()*/) {
                             AbstractInvokeExpr abstractInvokeExpr = (AbstractInvokeExpr) rightOp;
                             MethodSignature getConstructorMethodSignature = buildGetConstructorMethodSignature();
+                            MethodSignature classForNameMethodSignature = buildClassForNameMethodSignature();
                             if (getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
                                 Local local = getJVirtualInvokeExpr(stmt).getBase();
                                 if (local instanceof Local) {
                                     res.add((Local) local);//result.setTrackVariable((Local) local);
+                                }
+                            } else if (classForNameMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
+                                Immediate local = ((JStaticInvokeExpr) getAbstractInvokeExpr(stmt)).getArg(0);
+                                if (local instanceof Local) {
+                                    res.add((Local) local);
+                                } else if (local instanceof StringConstant) {
+                                    res.add(hardCoddedResult);
                                 }
                             } else {
                                 //TODO: write logic
@@ -1061,6 +1154,12 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
         ClassType classType = view.getIdentifierFactory().getClassType("java.lang.Class");
         return view.getIdentifierFactory()
                    .getMethodSignature(classType, "getConstructor", "java.lang.reflect.Constructor", Arrays.asList("java.lang.Class[]"));
+    }
+
+    private MethodSignature buildClassForNameMethodSignature() {
+        ClassType classType = view.getIdentifierFactory().getClassType("java.lang.Class");
+        return view.getIdentifierFactory()
+                   .getMethodSignature(classType, "forName", "java.lang.Class", Arrays.asList("java.lang.String"));
     }
 
     private void updateStringConcatenationSource(Value leftOp, Value rightOp, Stmt stmt, Set<Result> out) {

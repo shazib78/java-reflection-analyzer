@@ -4,6 +4,7 @@ import de.upb.sse.cutNRun.analyzer.methodSignature.ModernReflectionMethodSignatu
 import de.upb.sse.cutNRun.analyzer.methodSignature.TraditionalReflectionMethodSignature;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.expr.AbstractInvokeExpr;
+import sootup.core.jimple.common.expr.JInterfaceInvokeExpr;
 import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
 import sootup.core.jimple.common.stmt.JAssignStmt;
 import sootup.core.jimple.common.stmt.JInvokeStmt;
@@ -45,6 +46,23 @@ public class AnalysisHelper {
             Value rightOp = jAssignStmt.getRightOp();
             if (rightOp instanceof AbstractInvokeExpr) {
                 return (AbstractInvokeExpr) rightOp;
+            }
+        }
+        return null;
+    }
+
+    public static JInterfaceInvokeExpr getInterfaceInvokeExpr(Stmt stmt) {
+        if (stmt instanceof JInvokeStmt) {
+            JInvokeStmt jInvokeStmt = (JInvokeStmt) stmt;
+            AbstractInvokeExpr abstractInvokeExpr = jInvokeStmt.getInvokeExpr().orElse(null);
+            if (abstractInvokeExpr instanceof JInterfaceInvokeExpr) {
+                return (JInterfaceInvokeExpr) abstractInvokeExpr;
+            }
+        } else if (stmt instanceof JAssignStmt) {
+            JAssignStmt jAssignStmt = (JAssignStmt) stmt;
+            Value rightOp = jAssignStmt.getRightOp();
+            if (rightOp instanceof JInterfaceInvokeExpr) {
+                return (JInterfaceInvokeExpr) rightOp;
             }
         }
         return null;

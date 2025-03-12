@@ -2,15 +2,20 @@ package de.upb.sse.cutNRun.analyzer.soot;
 
 import sootup.analysis.interprocedural.icfg.BiDiInterproceduralCFG;
 import sootup.analysis.interprocedural.icfg.JimpleBasedInterproceduralCFG;
+import sootup.callgraph.CallGraph;
 import sootup.core.graph.StmtGraph;
 import sootup.core.jimple.basic.Value;
+import sootup.core.jimple.common.expr.JInterfaceInvokeExpr;
+import sootup.core.model.SootClass;
 import sootup.core.model.SootMethod;
 import sootup.core.jimple.common.stmt.Stmt;
+import sootup.core.signatures.MethodSignature;
+import sootup.core.types.ClassType;
+import sootup.core.views.View;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
+
+import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.getInterfaceInvokeExpr;
 
 /**
  * Same as {@link JimpleBasedInterproceduralCFG} but based on inverted Stmt graphs. This should be used for backward
@@ -19,9 +24,11 @@ import java.util.stream.Collectors;
 public class BackwardsInterproceduralCFG implements BiDiInterproceduralCFG<Stmt, SootMethod> {
 
   protected final BiDiInterproceduralCFG<Stmt, SootMethod> delegate;
+  final View view;
 
-  public BackwardsInterproceduralCFG(BiDiInterproceduralCFG<Stmt, SootMethod> fwICFG) {
+  public BackwardsInterproceduralCFG(BiDiInterproceduralCFG<Stmt, SootMethod> fwICFG, View view) {
     delegate = fwICFG;
+    this.view = view;
   }
 
   // swapped
@@ -97,7 +104,28 @@ public class BackwardsInterproceduralCFG implements BiDiInterproceduralCFG<Stmt,
     return callerStmts.stream()
                      .map(callerStmt -> delegate.getMethodOf(callerStmt))
                      .collect(Collectors.toSet());*/
-    return delegate.getCalleesOfCallAt(n);
+
+    //To find interface implementation
+    JInterfaceInvokeExpr jInterfaceInvokeExpr = getInterfaceInvokeExpr(n);
+    if (jInterfaceInvokeExpr != null) {
+      Collection<SootMethod> targetMethods = new HashSet<>();
+      ClassType interfaceClassType = jInterfaceInvokeExpr.getMethodSignature().getDeclClassType();
+      Set<CallGraph.Call> calls = ((JimpleBasedInterproceduralCFG) delegate).getCg().callsFrom(delegate.getMethodOf(n).getSignature());
+      for (CallGraph.Call call : calls) {
+        MethodSignature targetMethodSignature = call.getTargetMethodSignature();
+        SootClass targetMethodClass = view.getClass(targetMethodSignature.getDeclClassType()).orElse(null);
+        if ((targetMethodClass != null && targetMethodClass.implementsInterface(interfaceClassType))
+                && targetMethodSignature.getSubSignature().equals(jInterfaceInvokeExpr.getMethodSignature().getSubSignature())) {
+          Optional<? extends SootMethod> targetMethod = view.getMethod(targetMethodSignature);
+          if (targetMethod.isPresent()) {
+            targetMethods.add(targetMethod.get());
+          }
+        }
+      }
+      return targetMethods;
+    } else {
+      return delegate.getCalleesOfCallAt(n);
+    }
   }
 
   // same

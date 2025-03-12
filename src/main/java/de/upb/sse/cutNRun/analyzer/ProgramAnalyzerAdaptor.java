@@ -151,13 +151,14 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         final List<MethodSignature> cgEntryPoints = view.getClasses()
                                                         .flatMap(sootClass -> sootClass.getMethods().stream())
                                                         .filter(sootMethod -> sootMethod.isPublic())
+                                                        .filter(sootMethod -> sootMethod.hasBody())
                                                         .map(SootMethod::getSignature)
                                                         .collect(Collectors.toList());
 
         JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(
                 (new ClassHierarchyAnalysisAlgorithm(view)).initialize(cgEntryPoints)
                 , view, false, true);     //new JimpleBasedInterproceduralCFG(view, entryPoints, false, true);
-        BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg);
+        BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg, view);
         //TODO: testing start
         log.info("testing statements start");
         /*List<Stmt> startPointStmt = (List<Stmt>) icfg.getStartPointsOf(view.getMethod(entryPoints.get(0)).orElse(null));
