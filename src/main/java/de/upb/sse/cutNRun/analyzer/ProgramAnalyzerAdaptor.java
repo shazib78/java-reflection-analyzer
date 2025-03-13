@@ -13,6 +13,7 @@ import de.upb.sse.cutNRun.dataRecorder.ExcelWriterAdapter;
 import de.upb.sse.cutNRun.dataRecorder.ExcelWriterPort;
 import heros.InterproceduralCFG;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import sootup.analysis.interprocedural.icfg.JimpleBasedInterproceduralCFG;
 import sootup.analysis.interprocedural.ide.JimpleIDESolver;
 import sootup.callgraph.ClassHierarchyAnalysisAlgorithm;
@@ -60,41 +61,41 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         try {
             //TODO: uncomment for RQ1
             //if (!excelWriter.isJarWritten(jarName)) {
-                int totalSourcesOfUnsoundnessCount = 0;
-                for (SootClass sootClass : view.getClasses().toList()) {
-                    for (SootMethod sootMethod : sootClass.getMethods()) {
-                        System.out.println("method: " + sootMethod.getSignature());
-                        List<Stmt> statements = sootMethod.hasBody() ? sootMethod.getBody().getStmts() : Collections.emptyList();
-                        //System.out.println("method Statements:" + statements);
-                        List<Stmt> unsoundStatements = statements.stream()
-                                                                 .filter(statement -> isSourceOfUnsoundness(statement))
-                                                                 .collect(Collectors.toList());
-                        if (!unsoundStatements.isEmpty()) {
-                            //TODO: uncomment
-                            //getEntryPoints();
-                            log.debug("------------START--------------");
-                            log.debug("method: " + sootMethod.getSignature());
-                            log.debug("Sources of Unsoundness - Statements:");
-                            unsoundStatements.stream().forEach(stmt -> log.debug(stmt.toString()));
-                            log.debug("Sources of Unsoundness - Count: " + unsoundStatements.size());
-                            log.debug("------------END--------------");
-                            totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
-                            //TODO: uncomment for intraprocedural Analysis
+            int totalSourcesOfUnsoundnessCount = 0;
+            for (SootClass sootClass : view.getClasses().toList()) {
+                for (SootMethod sootMethod : sootClass.getMethods()) {
+                    System.out.println("method: " + sootMethod.getSignature());
+                    List<Stmt> statements = sootMethod.hasBody() ? sootMethod.getBody().getStmts() : Collections.emptyList();
+                    //System.out.println("method Statements:" + statements);
+                    List<Stmt> unsoundStatements = statements.stream()
+                                                             .filter(statement -> isSourceOfUnsoundness(statement))
+                                                             .collect(Collectors.toList());
+                    if (!unsoundStatements.isEmpty()) {
+                        //TODO: uncomment
+                        //getEntryPoints();
+                        log.debug("------------START--------------");
+                        log.debug("method: " + sootMethod.getSignature());
+                        log.debug("Sources of Unsoundness - Statements:");
+                        unsoundStatements.stream().forEach(stmt -> log.debug(stmt.toString()));
+                        log.debug("Sources of Unsoundness - Count: " + unsoundStatements.size());
+                        log.debug("------------END--------------");
+                        totalSourcesOfUnsoundnessCount = totalSourcesOfUnsoundnessCount + unsoundStatements.size();
+                        //TODO: uncomment for intraprocedural Analysis
                             /*unsoundStatements.stream()
                                              .forEach(stmt -> performIntraProceduralAnalysis(sootMethod, stmt));*/
-                            //TODO: uncomment for interprocedural Analysis
-                            unsoundStatements.stream()
-                                    .forEach(stmt -> performInterProceduralAnalysis(sootMethod, stmt));
-                        }
+                        //TODO: uncomment for interprocedural Analysis
+                        unsoundStatements.stream()
+                                         .forEach(stmt -> performInterProceduralAnalysis(sootMethod, stmt));
                     }
+                }
                     /*for(MethodSignature  : methodSignaturesToSearch)
                     if (!sootClass.getMethod(methodSignature.getSubSignature()).isPresent()) {
                         System.out.println("Method not found!");
                         return;  // Exit if the method is not found
                     }*/
-                }
-                log.info("Sources of Unsoundness - Total Count: " + totalSourcesOfUnsoundnessCount);
-                setRQ1ExcelData(excelData, totalSourcesOfUnsoundnessCount);
+            }
+            log.info("Sources of Unsoundness - Total Count: " + totalSourcesOfUnsoundnessCount);
+            setRQ1ExcelData(excelData, totalSourcesOfUnsoundnessCount);
             //TODO: uncomment for RQ1
             //}
         } catch (Exception e) {
@@ -146,21 +147,28 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         log.info("----------------------------------------");
         log.info("Starting inter-procedural analysis");
         log.info("Entry point:" + methodWithReflection.toString());
-        final List<MethodSignature> startMethod = Collections.singletonList(methodWithReflection.getSignature());
-        final List<MethodSignature> mainMethodEntryPoints = getMainMethodEntryPoints();
-        final List<MethodSignature> cgEntryPoints = view.getClasses()
-                                                        .flatMap(sootClass -> sootClass.getMethods().stream())
-                                                        .filter(sootMethod -> sootMethod.isPublic())
-                                                        .filter(sootMethod -> sootMethod.hasBody())
-                                                        .map(SootMethod::getSignature)
-                                                        .collect(Collectors.toList());
+        ExcelWriterPort excelWriter = new ExcelWriterAdapter("RQ3_Values", false);
+        excelWriter.setHeaders("statementId", "project", "statement", "Value", "Error", "Error message", "testing values");
+        Map<String, Object[]> excelData = new LinkedHashMap<>();
+        String statementId = jarName + "_" + methodWithReflection.getDeclaringClassType() + "_"
+                + methodWithReflection.getSignature().getSubSignature().toString() + "_" + startStmt.getPositionInfo().getStmtPosition().getFirstLine();
+        try {
+            if (!excelWriter.isJarWritten(jarName)) {
+                final List<MethodSignature> startMethod = Collections.singletonList(methodWithReflection.getSignature());
+                //final List<MethodSignature> mainMethodEntryPoints = getMainMethodEntryPoints();
+                final List<MethodSignature> cgEntryPoints = view.getClasses()
+                                                                .flatMap(sootClass -> sootClass.getMethods().stream())
+                                                                .filter(sootMethod -> sootMethod.isPublic())
+                                                                .filter(sootMethod -> sootMethod.hasBody())
+                                                                .map(SootMethod::getSignature)
+                                                                .collect(Collectors.toList());
 
-        JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(
-                (new ClassHierarchyAnalysisAlgorithm(view)).initialize(cgEntryPoints)
-                , view, false, true);     //new JimpleBasedInterproceduralCFG(view, entryPoints, false, true);
-        BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg, view);
-        //TODO: testing start
-        log.info("testing statements start");
+                JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(
+                        (new ClassHierarchyAnalysisAlgorithm(view)).initialize(cgEntryPoints)
+                        , view, false, true);     //new JimpleBasedInterproceduralCFG(view, entryPoints, false, true);
+                BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg, view);
+                //TODO: testing start
+                log.info("testing statements start");
         /*List<Stmt> startPointStmt = (List<Stmt>) icfg.getStartPointsOf(view.getMethod(entryPoints.get(0)).orElse(null));
         List<Stmt> temp = icfg.getSuccsOf(startPointStmt.get(0));
         log.info(temp.toString());
@@ -174,21 +182,38 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
             //}
         }while (!temp.isEmpty());
         log.info("testing statements end");*/
-        //TODO: testing end
+                //TODO: testing end
 
-        IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(backwardICFG, startMethod, startStmt, (JavaView) view);
-        JimpleIDESolver<Value, String, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
-        solver.solve();
-        Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(problem.getMethodConsistingResult())
-                                                                 .stream().findFirst().get());
-        /*Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(methodWithReflection).stream().findFirst().get());*/
-        //Map<Local, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(view.getMethod(mainMethodEntryPoints.get(0)).get())
-        //                                                                 .stream().findFirst().get());
-        for (Value key: result.keySet()) {
-            log.info("RESULT: {} = {}", key, result.get(key));
+                IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(backwardICFG, startMethod, startStmt, (JavaView) view);
+                JimpleIDESolver<Value, String, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
+                solver.solve();
+                Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(problem.getMethodConsistingResult())
+                                                                         .stream().findFirst().get());
+                /*Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(methodWithReflection).stream().findFirst().get());*/
+                //Map<Local, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(view.getMethod(mainMethodEntryPoints.get(0)).get())
+                //                                                                 .stream().findFirst().get());
+                if (!result.isEmpty()) {
+                    StringBuffer stringBuffer = new StringBuffer("");
+                    for (Value key : result.keySet()) {
+                        String value = result.get(key);
+                        log.info("RESULT: {} = {}", key, value);
+                        if (StringUtils.isNotEmpty(value) && !value.equals("<<TOP>>")) {
+                            stringBuffer.append(value);
+                        }
+                    }
+                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, stringBuffer.toString(), "", "", result});
+                } else {
+                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "", "", result});
+                }
+                //log.info("RESULT: {} = {}", result.keySet().stream().findFirst().get(), result.values().stream().findFirst().get());
+                log.info("End of inter-procedural analysis");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "ERROR", e.getMessage(), ""});
+        } finally {
+            excelWriter.saveData(excelData);
         }
-        //log.info("RESULT: {} = {}", result.keySet().stream().findFirst().get(), result.values().stream().findFirst().get());
-        log.info("End of inter-procedural analysis");
     }
 
     private List<MethodSignature> getMainMethodEntryPoints() {
@@ -196,13 +221,13 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         excelWriter.setHeaders("Name", "No of entry points", "entryPoints");
         Map<String, Object[]> excelData = new LinkedHashMap<>();*/
         Collection<MethodSignature> entryPoints = view.getClasses()
-                .flatMap(sootClass -> sootClass.getMethods().stream())
-                .filter(sootMethod -> sootMethod.isMain(view.getIdentifierFactory()))//.getSubSignature().equals(buildMethodSignature("java.lang.String", "<init>", "void", Arrays.asList("char[]"), view);))
-                .map(SootMethod::getSignature)
-                .collect(Collectors.toSet());
+                                                      .flatMap(sootClass -> sootClass.getMethods().stream())
+                                                      .filter(sootMethod -> sootMethod.isMain(view.getIdentifierFactory()))//.getSubSignature().equals(buildMethodSignature("java.lang.String", "<init>", "void", Arrays.asList("char[]"), view);))
+                                                      .map(SootMethod::getSignature)
+                                                      .collect(Collectors.toSet());
         /*excelData.put(jarName,new Object[]{jarName, });
         excelWriter.saveData(excelData);*/
-        if(entryPoints.size() !=1 ) {
+        if (entryPoints.size() != 1) {
             throw new RuntimeException("No single entry point. No. of entry points = " + entryPoints.size());
         }
         return entryPoints.stream().toList();
@@ -235,7 +260,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                 } else if (stringConcatResult.isEmpty() && !argumentSourceAnalysis.isBranching()) {
                     log.info("Argument Source: {} for Statement: {}", argumentSource, startStmt);
                     log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", true, 1, argumentSource);
-                    if (argumentSource == UNKNOWN){
+                    if (argumentSource == UNKNOWN) {
                         log.error("Testing");
                     }
                     excelData.put(statementId, new Object[]{statementId, jarName, startStmt, true, 1, !stringConcatResult.isEmpty(),
@@ -259,7 +284,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                     log.info("for Statement: {}", startStmt);
                     log.info("isSingleSource: {} allSourcesCount: {} allSources: {}", sources.stream().distinct().count() == 1, sources.size(),
                              sources);
-                    if (sources.size()<=0){
+                    if (sources.size() <= 0) {
                         log.error("Testing");
                     }
                     excelData.put(statementId, new Object[]{statementId, jarName, startStmt, sources.stream().distinct().count() == 1,
@@ -276,7 +301,7 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         } catch (Exception e) {
             e.printStackTrace();
             excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "", "", "ERROR", "", e.getMessage()});
-        }  finally {
+        } finally {
             excelWriter.saveData(excelData);
         }
     }

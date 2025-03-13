@@ -204,7 +204,7 @@ public class IDEValueAnalysisProblem extends DefaultJimpleIDETabulationProblem<V
                                     }
                                 }
                             };*/
-                                if (hardCoddedResult.equivTo(destNode)) { //this condition would by default mean returnStmtOpValue is StringConstant
+                                if (hardCoddedResult.equivTo(destNode)) {
                                     if (returnStmtOpValue instanceof StringConstant) {
                                         methodConsistingResult = destinationMethod;
                                         StringConstant hardcodedValue = (StringConstant) returnStmtOpValue;

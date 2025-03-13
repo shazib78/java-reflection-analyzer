@@ -462,9 +462,9 @@ class TraditionalReflectionMethodTest {
 
     @Test
     public void testing() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/hibernate-core-6.6.3.Final.jar"));
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/junit-4.13.2.jar"));
 
-        ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
                                                    .getMethodSignature(classType, "getPublicMethod", "java.lang.reflect.Method", List.of(
                                                            "java.lang.Class","java.lang.String", "java.lang.Class[]")))
@@ -494,7 +494,7 @@ class TraditionalReflectionMethodTest {
         //assertEquals(false, stringConcatResult.isEveryStringFromSameSource());
         //assertEquals(2, stringConcatResult.getArgumentSources().size());
         assertTrue(stringConcatResult.isEmpty());
-        //assertEquals(UNKOWN, result.getArgumentSource());*//*
+        //assertEquals(UNKOWN, result.getArgumentSource());*/
 
         //For manual testing
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
