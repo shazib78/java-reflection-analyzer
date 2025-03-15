@@ -13,12 +13,11 @@ import de.upb.sse.cutNRun.dataRecorder.ExcelWriterAdapter;
 import de.upb.sse.cutNRun.dataRecorder.ExcelWriterPort;
 import heros.InterproceduralCFG;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import sootup.analysis.interprocedural.icfg.JimpleBasedInterproceduralCFG;
 import sootup.analysis.interprocedural.ide.JimpleIDESolver;
 import sootup.callgraph.ClassHierarchyAnalysisAlgorithm;
 import sootup.core.graph.StmtGraph;
-import sootup.core.jimple.basic.Local;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.expr.AbstractInvokeExpr;
 import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
@@ -185,26 +184,34 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                 //TODO: testing end
 
                 IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(backwardICFG, startMethod, startStmt, (JavaView) view);
-                JimpleIDESolver<Value, String, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
+                JimpleIDESolver<Value, Set<String>, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
                 solver.solve();
-                Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(problem.getMethodConsistingResult())
-                                                                         .stream().findFirst().get());
+                /*Map<Value, Set<String>> result = solver.resultsAt(backwardICFG.getEndPointsOf(problem.getMethodsConsistingResult())
+                                                                         .stream().findFirst().get());*/
                 /*Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(methodWithReflection).stream().findFirst().get());*/
                 //Map<Local, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(view.getMethod(mainMethodEntryPoints.get(0)).get())
                 //                                                                 .stream().findFirst().get());
-                if (!result.isEmpty()) {
-                    StringBuffer stringBuffer = new StringBuffer("");
-                    for (Value key : result.keySet()) {
-                        String value = result.get(key);
-                        log.info("RESULT: {} = {}", key, value);
-                        if (StringUtils.isNotEmpty(value) && !value.equals("<<TOP>>")) {
-                            stringBuffer.append(value);
+
+                List<Stmt> stmtsToCheckResults = problem.getMethodsConsistingResult().stream()
+                                                        .flatMap(method -> backwardICFG.getEndPointsOf(method).stream())
+                                                        .collect(Collectors.toList());
+                Set<String> filteredResultValues = new HashSet<>();
+                Map<Value, Set<String>> rawResult = new HashMap<>();
+                for (Stmt stmt : stmtsToCheckResults) {
+                    Map<Value, Set<String>> result = solver.resultsAt(stmt);
+                    if (!result.isEmpty()) {
+                        rawResult.putAll(result);
+                        for (Value key : result.keySet()) {
+                            Set<String> values = result.get(key);
+                            log.info("RESULT: {} = {}", key, values);
+                            if (CollectionUtils.isNotEmpty(values) && !values.equals(new HashSet<>(Arrays.asList("<<TOP>>")))) {
+                                filteredResultValues.addAll(values);//stringBuffer.append(values.toString());
+                            }
                         }
                     }
-                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, stringBuffer.toString(), "", "", result});
-                } else {
-                    excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "", "", result});
                 }
+                excelData.put(statementId, new Object[]{statementId, jarName, startStmt, filteredResultValues, "", "", rawResult});
+                log.info("FINAL RESULT: {}", filteredResultValues);
                 //log.info("RESULT: {} = {}", result.keySet().stream().findFirst().get(), result.values().stream().findFirst().get());
                 log.info("End of inter-procedural analysis");
             }

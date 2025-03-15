@@ -217,13 +217,13 @@ class TraditionalReflectionMethodTest {
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }
-
+*/
 
     //If branch tests
     @Test
     public void shouldAnalyzeIfBranchTest1() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/branching/ifBranch1"));
-        ClassType classType = view.getIdentifierFactory().getClassType("MethodIfBranch1");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("MethodIfBranch1");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
                                                    .getMethodSignature(classType, "caller", "void", Collections.emptyList()))
                                     .get();
@@ -248,7 +248,7 @@ class TraditionalReflectionMethodTest {
         JimpleIDESolver<Value, String, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
         solver.solve();
         Map<Value, String> result = solver.resultsAt(backwardICFG.getEndPointsOf(problem.getMethodConsistingResult())
-                                                                 .stream().findFirst().get());
+                                                                 .stream().findFirst().get());*/
         //assertEquals(result.size(), 1);
         //assertEquals("execute", result.get(JavaJimple.newLocal("hardCoddedResult", view.getIdentifierFactory().getClassType("java.lang.String"))));
 
@@ -259,7 +259,7 @@ class TraditionalReflectionMethodTest {
     @Test
     public void shouldAnalyzeIfBranchTest2() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/multipleSources/ifBranch2"));
-        ClassType classType = view.getIdentifierFactory().getClassType("Main");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("Main");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
                                                    .getMethodSignature(classType, "test", "void", List.of("java.lang.String")))
                                     .get();
@@ -284,7 +284,7 @@ class TraditionalReflectionMethodTest {
                                                              .map(result1 -> result1.getArgumentSource())
                                                              .collect(Collectors.toUnmodifiableList());
         assertTrue(CollectionUtils.isEqualCollection(sources, Arrays.asList(RETURN_FROM_METHOD, RETURN_FROM_METHOD)));
-        assertTrue(stringConcatResult.isEmpty());
+        assertTrue(stringConcatResult.isEmpty());*/
 
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
@@ -296,7 +296,7 @@ class TraditionalReflectionMethodTest {
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }
-*/
+
     //Test string new keyword
     @Test
     public void shouldAnalyzeStingNewKeyword() {
@@ -462,7 +462,7 @@ class TraditionalReflectionMethodTest {
 
     @Test
     public void testing() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/junit-4.13.2.jar"));
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/slf4j-api-2.0.16.jar"));
 
         /*ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
