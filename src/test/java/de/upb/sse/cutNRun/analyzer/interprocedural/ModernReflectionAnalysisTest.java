@@ -291,12 +291,11 @@ public class ModernReflectionAnalysisTest {
         programAnalyzerPort.analyze();
     }
 
-    //TODO: branching logic
-    /*@Test
+    @Test
     public void shouldAnalyzeFindSpecialMultipleSource() {
         //DownloadJarAnalysisInputLocation
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/modernReflection/testFile12-ifBranchMultipleSource"));
-        ClassType classType = view.getIdentifierFactory().getClassType("FindSpecialReflectionMultipleSource");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("FindSpecialReflectionMultipleSource");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
                                                    .getMethodSignature(classType, "main", "void", List.of("java.lang.String[]")))
                                     .get();
@@ -314,10 +313,10 @@ public class ModernReflectionAnalysisTest {
                                                              .collect(Collectors.toUnmodifiableList());
         assertEquals(true, stringConcatResult.isEmpty());
         assertEquals(true, argumentSourceAnalysis.isBranching());
-        assertTrue(CollectionUtils.isEqualCollection(List.of(LOCAL, RETURN_FROM_METHOD), sources));
+        assertTrue(CollectionUtils.isEqualCollection(List.of(LOCAL, RETURN_FROM_METHOD), sources));*/
 
         //For manual Testing
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
-    }*/
+    }
 }

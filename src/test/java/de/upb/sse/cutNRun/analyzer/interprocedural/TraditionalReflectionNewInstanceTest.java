@@ -324,10 +324,10 @@ public class TraditionalReflectionNewInstanceTest {
         programAnalyzerPort.analyze();
     }
 
-    /*@Test
+    @Test
     public void shouldAnalyzeFile7_multipleSource_ifBranch() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/NewInstance/File7-IfBranch"));
-        ClassType classType = view.getIdentifierFactory().getClassType("NewInstanceFileIfBranch1");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("NewInstanceFileIfBranch1");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
                                                    .getMethodSignature(classType, "caller", "void", Collections.emptyList()))
                                     .get();
@@ -344,7 +344,7 @@ public class TraditionalReflectionNewInstanceTest {
                                                              .collect(Collectors.toUnmodifiableList());
         assertEquals(true, stringConcatResult.isEmpty());
         assertEquals(true, argumentSourceAnalysis.isBranching());
-        assertTrue(CollectionUtils.isEqualCollection(List.of(LOCAL, RETURN_FROM_METHOD), sources));
+        assertTrue(CollectionUtils.isEqualCollection(List.of(LOCAL, RETURN_FROM_METHOD), sources));*/
 
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
@@ -353,7 +353,7 @@ public class TraditionalReflectionNewInstanceTest {
     @Test
     public void shouldAnalyzeFile8_WhileLoopTest() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/NewInstance/File8-WhileLoop"));
-        ClassType classType = view.getIdentifierFactory().getClassType("NewInstanceFileForLoop1");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("NewInstanceFileForLoop1");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
                                                    .getMethodSignature(classType, "caller", "void", Collections.emptyList()))
                                     .get();
@@ -370,11 +370,11 @@ public class TraditionalReflectionNewInstanceTest {
                                                              .collect(Collectors.toUnmodifiableList());
         assertEquals(true, stringConcatResult.isEmpty());
         assertEquals(true, argumentSourceAnalysis.isBranching());
-        assertTrue(CollectionUtils.isEqualCollection(List.of(LOCAL, RETURN_FROM_METHOD), sources));
+        assertTrue(CollectionUtils.isEqualCollection(List.of(LOCAL, RETURN_FROM_METHOD), sources));*/
 
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
-    }*/
+    }
 
     @Test
     public void shouldAnalyzeFile9_OverwriteSourcesTest() {

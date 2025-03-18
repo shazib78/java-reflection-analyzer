@@ -462,7 +462,7 @@ class TraditionalReflectionMethodTest {
 
     @Test
     public void testing() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/slf4j-api-2.0.16.jar"));
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/junit-4.13.2.jar"));
 
         /*ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()

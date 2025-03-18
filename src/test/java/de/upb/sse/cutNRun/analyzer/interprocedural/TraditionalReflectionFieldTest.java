@@ -199,10 +199,10 @@ public class TraditionalReflectionFieldTest {
     }
 
     //Multiple sources
-    /*@Test
+    @Test
     public void shouldAnalyzeIfBranchFile1() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/field/multipleSources/ifBranch1"));
-        ClassType classType = view.getIdentifierFactory().getClassType("FieldFileIfBranch1");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("FieldFileIfBranch1");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
                                                    .getMethodSignature(classType, "caller", "void", Collections.emptyList()))
                                     .get();
@@ -220,15 +220,24 @@ public class TraditionalReflectionFieldTest {
         assertTrue(CollectionUtils.isEqualCollection(sources, Arrays.asList(LOCAL, RETURN_FROM_METHOD)));
         assertEquals(true, stringConcatResult.isEmpty());
         assertEquals(true, argumentSourceAnalysis.isBranching());
-
+*/
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }
 
-    @Test
+    /*@Test
     public void shouldAnalyzeIfBranchFile2_ERROR_BRANCHING_AND_STRINGCONCAT() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/field/multipleSources/ifBranch2"));
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }*/
+
+    //Scenario in Junit jar
+    @Test
+    public void shouldAnalyzeJunitExample() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/testFile"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
 }
