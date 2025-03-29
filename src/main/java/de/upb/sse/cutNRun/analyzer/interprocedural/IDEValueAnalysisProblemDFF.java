@@ -1,0 +1,1462 @@
+package de.upb.sse.cutNRun.analyzer.interprocedural;
+
+import de.upb.sse.cutNRun.analyzer.interprocedural.flowFunction.call.CallFF;
+import de.upb.sse.cutNRun.analyzer.interprocedural.flowFunction.call.ReturnFF;
+import de.upb.sse.cutNRun.analyzer.interprocedural.flowFunction.normal.*;
+import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource;
+import de.upb.sse.cutNRun.analyzer.intraprocedural.Result;
+import de.upb.sse.cutNRun.analyzer.intraprocedural.StringConcatenationProcessor;
+import de.upb.sse.cutNRun.analyzer.intraprocedural.StringConcatenationSource;
+import heros.*;
+import heros.edgefunc.AllBottom;
+import heros.edgefunc.AllTop;
+import heros.edgefunc.EdgeIdentity;
+import heros.flowfunc.Gen;
+import heros.flowfunc.Identity;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
+import sootup.analysis.interprocedural.ide.DefaultJimpleIDETabulationProblem;
+import sootup.callgraph.CallGraph;
+import sootup.core.jimple.basic.Immediate;
+import sootup.core.jimple.basic.Local;
+import sootup.core.jimple.basic.Value;
+import sootup.core.jimple.common.constant.ClassConstant;
+import sootup.core.jimple.common.constant.StringConstant;
+import sootup.core.jimple.common.expr.*;
+import sootup.core.jimple.common.ref.*;
+import sootup.core.jimple.common.stmt.*;
+import sootup.core.model.LinePosition;
+import sootup.core.model.SootMethod;
+import sootup.core.signatures.MethodSignature;
+import sootup.core.types.ClassType;
+import sootup.core.types.NullType;
+import sootup.java.core.JavaSootMethod;
+import sootup.java.core.language.JavaJimple;
+import sootup.java.core.views.JavaView;
+
+import java.util.*;
+
+import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.*;
+import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.*;
+
+@Slf4j
+public class IDEValueAnalysisProblemDFF extends DefaultJimpleIDETabulationProblem<DFF, Set<String>, InterproceduralCFG<Stmt, SootMethod>> {
+    private boolean isTraditionalReflection;
+    private boolean isTraditionalNewInstanceReflection;
+    private boolean isTraditionalMethodReflection;
+    private boolean isTraditionalFieldReflection;
+    private boolean isModernNewInstanceReflection;
+    private boolean isModernMethodReflection;
+    private boolean isModernFieldReflection;
+    @Getter
+    private StringConcatenationSource stringConcatenationSource;
+    protected InterproceduralCFG<Stmt, SootMethod> icfg;
+    //private final List<MethodSignature> entryPoints;
+    private final Stmt startStmt;
+    protected final JavaView view;
+    protected final static Set<String> TOP = new HashSet<>();
+    protected final static Set<String> BOTTOM = new HashSet<>(Arrays.asList("<<TOP>>"));
+    protected final static EdgeFunction<Set<String>> ALL_BOTTOM = new AllBottom<>(BOTTOM);
+    private final Local hardCoddedResult;
+    private Set<SootMethod> methodsConsistingResult;
+    private CallGraph callGraph;
+    private Collection<JavaSootMethod> entryPoints;
+    private final Map<DFF, String> staticFieldsValueMap;
+
+    public IDEValueAnalysisProblemDFF(InterproceduralCFG<Stmt, SootMethod> icfg, List<JavaSootMethod> entryPoints,
+                                      Stmt startStmt, JavaView view, CallGraph callGraph, Map<DFF, String> staticFieldsValueMap) {
+        super(icfg);
+        this.icfg = icfg;
+        //this.entryPoints = entryPoints;
+        this.startStmt = startStmt;
+        this.view = view;
+        this.hardCoddedResult = JavaJimple.newLocal("hardCoddedResult",
+                                                    view.getIdentifierFactory().getClassType("java.lang.String"));
+        this.isTraditionalReflection = false;
+        this.isTraditionalNewInstanceReflection = false;
+        this.isTraditionalMethodReflection = false;
+        this.isTraditionalFieldReflection = false;
+        this.isModernNewInstanceReflection = false;
+        this.isModernMethodReflection = false;
+        this.isModernFieldReflection = false;
+        this.stringConcatenationSource = StringConcatenationSource.builder().build();
+        this.methodsConsistingResult = new HashSet<>();
+        this.callGraph = callGraph;
+        this.entryPoints = entryPoints;
+        this.staticFieldsValueMap = staticFieldsValueMap;
+    }
+
+    /*@Override
+    public int numThreads() {
+        return 1;
+    }*/
+
+    //TODO: Everything is copied, change logic
+
+    /*protected static class EdgeFunctionComposer implements EdgeFunction<Set<String>> {
+
+        private final EdgeFunction<Set<String>> F;
+        private final EdgeFunction<Set<String>> G;
+
+        public EdgeFunctionComposer(EdgeFunction<Set<String>> F, EdgeFunction<Set<String>> G) {
+            this.F = F;
+            this.G = G;
+        }
+
+        @Override
+        public Set<String> computeTarget(Set<String> source) {
+            return F.computeTarget(G.computeTarget(source));
+        }
+
+        @Override
+        public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+            return G.composeWith(F.composeWith(secondFunction));
+        }
+
+        @Override
+        public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+            // FIXME: needs improvement, but is good enough to analyze the current target programs
+            if (ALL_BOTTOM.equalTo(this) && !ALL_BOTTOM.equalTo(otherFunction)) {
+                return otherFunction;
+            } else if (!ALL_BOTTOM.equalTo(this) && ALL_BOTTOM.equalTo(otherFunction)) {
+                return this;
+            } else {
+                return this;
+            }
+        }
+
+        @Override
+        public boolean equalTo(EdgeFunction<Set<String>> other) {
+            return F.equalTo(other);
+        }
+
+    }*/
+
+    @Override
+    protected EdgeFunction<Set<String>> createAllTopFunction() {
+        return new AllTop<>(TOP);
+    }
+
+    @Override
+    protected MeetLattice<Set<String>> createMeetLattice() {
+        return new MeetLattice<Set<String>>() {
+            @Override
+            public Set<String> topElement() {
+                return TOP;
+            }
+
+            @Override
+            public Set<String> bottomElement() {
+                return BOTTOM;
+            }
+
+            @Override
+            public Set<String> meet(Set<String> left, Set<String> right) {
+                /*if (left.equals(TOP) && !right.equals(BOTTOM)) {
+                    return right;
+                } else if (right.equals(TOP) && !left.equals(BOTTOM)) {
+                    return left;
+                }*//* else if ((left != TOP && left != BOTTOM) && (right != TOP && right != BOTTOM)) {
+                    return left + ", " + right;
+                }*//* else {
+                    return BOTTOM;
+                }*/
+                if (left.equals(TOP)) {
+                    return right;
+                }
+                if (right.equals(TOP)) {
+                    return left;
+                }
+                if (left.equals(BOTTOM)) {
+                    return left;
+                }
+                if (right.equals(BOTTOM)) {
+                    return right;
+                }
+                if (left.equals(right)) {
+                    return left;
+                } else {
+                    left.addAll(right);
+                    return left;
+                }
+            }
+        };
+    }
+
+    @Override
+    protected EdgeFunctions<Stmt, DFF, SootMethod, Set<String>> createEdgeFunctionsFactory() {
+        return new EdgeFunctions<Stmt, DFF, SootMethod, Set<String>>() {
+            @Override
+            public EdgeFunction<Set<String>> getNormalEdgeFunction(Stmt src, DFF srcNode, Stmt tgt, DFF tgtNode) {
+                log.info("EDGE getNormalEdgeFunction src: " + src.toString());
+                if (isTraditionalReflection) {
+                    if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                        return createEdgeFunctionsForMethodAndFieldReflection(src, srcNode, tgtNode);
+                    } else if (isTraditionalNewInstanceReflection) {
+                        return createEdgeFunctionsForNewInstanceReflection(src, srcNode, tgtNode);
+                    }
+                } else {
+                    if (isModernMethodReflection || isModernFieldReflection) {
+                        return createEdgeFunctionsForMethodAndFieldReflection(src, srcNode, tgtNode);
+                    } else if (isModernNewInstanceReflection) {
+                        return createEdgeFunctionsForNewInstanceReflection(src, srcNode, tgtNode);
+                    }
+                }
+                return EdgeIdentity.v();
+            }
+
+            @Override
+            public EdgeFunction<Set<String>> getCallEdgeFunction(Stmt callStmt, DFF srcNode, SootMethod destinationMethod, DFF destNode) {
+                log.info("EDGE getCallEdgeFunction callStmt: " + callStmt.toString());
+                if (callStmt != null) {
+                    if (callStmt instanceof AbstractDefinitionStmt) {
+                        AbstractDefinitionStmt defnStmt = (AbstractDefinitionStmt) callStmt;
+                        Value leftOp = defnStmt.getLeftOp();
+                        if (leftOp.equivTo(srcNode.getValue())) {
+                            Stmt destMethodFirstStmt = icfg.getStartPointsOf(destinationMethod).stream().findFirst().get();//dest.getBody().getStmtGraph().
+
+                            if (destMethodFirstStmt instanceof JReturnStmt) {
+                                JReturnStmt returnStmt = (JReturnStmt) destMethodFirstStmt;
+                                Value returnStmtOpValue = returnStmt.getOp();
+                            /*return new FlowFunction<Local>() {
+                                @Override
+                                public Set<Local> computeTargets(Local source) {
+                                    if (source == leftOp) {
+                                        if(returnStmtOpValue instanceof StringConstant) {
+                                            return Collections.singleton(hardCoddedResult);
+                                        }
+                                    }
+                                }
+                            };*/
+                                if (hardCoddedResult.equivTo(destNode.getValue())) {
+                                    if (returnStmtOpValue instanceof StringConstant) {
+                                        methodsConsistingResult.add(destinationMethod);
+                                        StringConstant hardcodedValue = (StringConstant) returnStmtOpValue;
+                                        return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                                        /*return new EdgeFunction<Set<String>>() {
+                                            @Override
+                                            public Set<String> computeTarget(Set<String> source) {
+                                                return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                            }
+                                            @Override
+                                            public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                                if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                                    return otherFunction;
+                                                } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                                return this.equals(other);
+                                            }
+                                        };*/
+                                    } else if (returnStmtOpValue instanceof ClassConstant) {
+                                        methodsConsistingResult.add(destinationMethod);
+                                        ClassConstant hardcodedValue = (ClassConstant) returnStmtOpValue;
+                                        return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                                        /*return new EdgeFunction<Set<String>>() {
+                                            @Override
+                                            public Set<String> computeTarget(Set<String> source) {
+                                                return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                            }
+                                            @Override
+                                            public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                                if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                                    return otherFunction;
+                                                } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                                return this.equals(other);
+                                            }
+                                        };*/
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return EdgeIdentity.v();
+            }
+
+            @Override
+            public EdgeFunction<Set<String>> getReturnEdgeFunction(Stmt callSite, SootMethod calleeMethod, Stmt exitStmt,
+                                                                   DFF exitNode, Stmt returnSite, DFF retNode) {
+                log.info("EDGE getReturnEdgeFunction callSite: " + callSite.toString());
+                if (callSite != null) {
+                    AbstractInvokeExpr ie = getAbstractInvokeExpr(callSite);//s.getInvokeExpr();
+                    if (ie == null) {
+                        log.error("EdgeFunction: Unexpected callSite Stmt: {}", callSite);
+                    } else {
+                        final List<Immediate> callArgs = ie.getArgs();
+                        final List<Immediate> paramLocals = new ArrayList<>(callArgs.size());
+                        for (int i = 0; i < calleeMethod.getParameterCount(); i++) {
+                            paramLocals.add(calleeMethod.getBody().getParameterLocal(i));
+                        }
+                        //ignore implicit calls to static initializers
+                        if (/*dest.getName().equals("<clinit>") &&*/ callArgs.size() == 0) {
+                            //TODO: write logic
+                            //return Collections.emptySet();
+                        }
+                        Set<Local> res = new HashSet<>();
+                        for (int i = 0; i < paramLocals.size(); i++) {
+                            // Special case: check if function is called with integer literals as params
+                                /*if (paramLocals.get(i) instanceof StringConstant && source == zeroValue()) {
+                                    res.add((Local) callArgs.get(i));
+                                }*/
+                            // Ordinary case: just perform the mapping
+                            if (paramLocals.get(i) == exitNode.getValue()) {
+                                if (!(callArgs.get(i) instanceof StringConstant || callArgs.get(i) instanceof ClassConstant)) {
+                                    return EdgeIdentity.v();
+                                } else {
+                                    // Special case: check if function is called with integer literals as params
+                                    if (hardCoddedResult.equivTo(retNode.getValue())) {
+                                        if (callArgs.get(i) instanceof StringConstant) {
+                                            methodsConsistingResult.add(icfg.getMethodOf(callSite));
+                                            StringConstant hardcodedValue = (StringConstant) callArgs.get(i);
+                                            return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                                        /*return new EdgeFunction<Set<String>>() {
+                                            @Override
+                                            public Set<String> computeTarget(Set<String> source) {
+                                                return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                            }
+                                            @Override
+                                            public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                                if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                                    return otherFunction;
+                                                } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                                return this.equals(other);
+                                            }
+                                        };*/
+                                        } else if (callArgs.get(i) instanceof ClassConstant) {
+                                            methodsConsistingResult.add(icfg.getMethodOf(callSite));
+                                            ClassConstant hardcodedValue = (ClassConstant) callArgs.get(i);
+                                            return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                                        /*return new EdgeFunction<Set<String>>() {
+                                            @Override
+                                            public Set<String> computeTarget(Set<String> source) {
+                                                return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                            }
+                                            @Override
+                                            public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                                if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                                    return otherFunction;
+                                                } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                                return this.equals(other);
+                                            }
+                                        };*/
+                                        }
+
+                                    }
+                                }
+                            }
+                        }
+                        //return res;
+                    }
+                }
+                return EdgeIdentity.v();
+            }
+
+            @Override
+            public EdgeFunction<Set<String>> getCallToReturnEdgeFunction(Stmt callStmt, DFF callNode, Stmt returnSite, DFF returnSideNode) {
+                log.info("EDGE getCallToReturnEdgeFunction callStmt: " + callStmt.toString());
+                /*if (hardCoddedResult.equivTo(returnSideNode) && callStmt.equivTo(startStmt)) {
+                    JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callStmt);
+
+                        Immediate argument = jVirtualInvokeExpr.getArg(0);
+                        if (argument instanceof StringConstant) {
+                            StringConstant hardcodedValue = (StringConstant) argument;
+                            return new EdgeFunction<String>() {
+                                @Override
+                                public String computeTarget(String source) {
+                                    return hardcodedValue.getValue();
+                                }
+
+                                @Override
+                                public EdgeFunction<String> composeWith(EdgeFunction<String> secondFunction) {
+                                    return new EdgeFunctionComposer(secondFunction, this);
+                                }
+
+                                @Override
+                                public EdgeFunction<String> meetWith(EdgeFunction<String> otherFunction) {
+                                    if (this == ALL_BOTTOM && otherFunction != ALL_BOTTOM) {
+                                        return otherFunction;
+                                    } else if (this != ALL_BOTTOM && otherFunction == ALL_BOTTOM) {
+                                        return this;
+                                    } else {
+                                        return this;
+                                    }
+                                }
+
+                                @Override
+                                public boolean equalTo(EdgeFunction<String> other) {
+                                    return this == other;
+                                }
+                            };
+                        }
+                    }*/
+
+                Immediate argument = null;
+                if (callStmt.equivTo(startStmt)) {
+                    JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callStmt);
+                    if (isTraditionalReflection) {
+                        if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                            //return analyzeMethodAndFieldReflection(null /*out*/, callSite, false);
+                            /*if (false*//*isModernReflection*//*) {
+                                argument = jVirtualInvokeExpr.getArg(1);
+                            } else {*/
+                            argument = jVirtualInvokeExpr.getArg(0);
+                            /*}
+                            if (argument instanceof StringConstant) {
+                                return new Gen(hardCoddedResult, zeroValue()); //setResultArgumentSource(LOCAL, stmt, out);
+                            } else if (argument instanceof Local) {
+                                return new Gen(argument, zeroValue()); //result.setTrackVariable((Local) argument);
+                            }*/
+                        } else if (isTraditionalNewInstanceReflection) {
+                            //TODO: write logic - may not be required
+                            //return analyzeNewInstanceReflection(out, stmt, false);
+                            /*if (isModernReflection) {
+                                immediate = jVirtualInvokeExpr.getArg(0);
+                            } else {*/
+                                argument = jVirtualInvokeExpr.getBase();
+                            //}
+                        }
+                    } else {
+                        if (isModernMethodReflection || isModernFieldReflection) {
+                            argument = jVirtualInvokeExpr.getArg(1); //return analyzeMethodAndFieldReflection(null /*out*/, callSite, true);
+                        } else if (isModernNewInstanceReflection) {
+                            //TODO: write logic  - may not be required
+                            //return analyzeNewInstanceReflection(out, stmt, true);
+                            /*if (isModernReflection) {*/
+                                argument = jVirtualInvokeExpr.getArg(0);
+                            /*} else {
+                                immediate = jVirtualInvokeExpr.getBase();
+                            }*/
+                        }
+                    }
+
+
+                    if (argument instanceof StringConstant) {
+                        methodsConsistingResult.add(icfg.getMethodOf(callStmt));
+                        StringConstant hardcodedValue = (StringConstant) argument;
+                        return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                        /*return new EdgeFunction<Set<String>>() {
+                            @Override
+                            public Set<String> computeTarget(Set<String> source) {
+                                return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                            }
+                            @Override
+                            public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                return new EdgeFunctionComposer(secondFunction, this);
+                            }
+
+                            @Override
+                            public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                    return otherFunction;
+                                } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                    return this;
+                                } else {
+                                    return this;
+                                }
+                            }
+
+                            @Override
+                            public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                return this.equals(other);
+                            }
+                        };*/
+                    } else if (argument instanceof ClassConstant) {
+                        methodsConsistingResult.add(icfg.getMethodOf(callStmt));
+                        ClassConstant hardcodedValue = (ClassConstant) argument;
+                        return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                        /*return new EdgeFunction<Set<String>>() {
+                            @Override
+                            public Set<String> computeTarget(Set<String> source) {
+                                return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                            }
+                            @Override
+                            public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                return new EdgeFunctionComposer(secondFunction, this);
+                            }
+
+                            @Override
+                            public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                    return otherFunction;
+                                } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                    return this;
+                                } else {
+                                    return this;
+                                }
+                            }
+
+                            @Override
+                            public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                return this.equals(other);
+                            }
+                        };*/
+                    } else if (argument instanceof JFieldRef) {
+                        if (isStaticFieldInitialized(argument)){
+                            methodsConsistingResult.add(icfg.getMethodOf(callStmt));
+                            String hardcodedValue = staticFieldsValueMap.get(DFF.asDFF(argument, view));
+                            return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue)));
+                        }
+                    }
+                } else {
+                    if (isTraditionalReflection) {
+                        if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                            return createEdgeFunctionsForMethodAndFieldReflection(callStmt, callNode, returnSideNode);
+                        } else if (isTraditionalNewInstanceReflection) {
+                            return createEdgeFunctionsForNewInstanceReflection(callStmt, callNode, returnSideNode);
+                        }
+                    } else {
+                        if (isModernMethodReflection || isModernFieldReflection) {
+                            return createEdgeFunctionsForMethodAndFieldReflection(callStmt, callNode, returnSideNode);
+                        } else if (isModernNewInstanceReflection) {
+                            return createEdgeFunctionsForNewInstanceReflection(callStmt, callNode, returnSideNode);
+                        }
+                    }
+                }
+
+                return EdgeIdentity.v();
+            }
+        };
+    }
+
+    private EdgeFunction<Set<String>> createEdgeFunctionsForMethodAndFieldReflection(Stmt stmt, DFF srcNode, DFF tgtNode) {
+        if (hardCoddedResult.equivTo(tgtNode.getValue())) {
+            if (stmt instanceof JAssignStmt) {
+                JAssignStmt jAssignStmt = (JAssignStmt) stmt;
+                Value leftOpTemp = jAssignStmt.getLeftOp();
+                Value rightOpTemp = jAssignStmt.getRightOp();
+                if (rightOpTemp instanceof JCastExpr) {
+                    JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
+                    rightOpTemp = jCastExpr.getOp();
+                }
+                if (rightOpTemp instanceof JArrayRef) {
+                    JArrayRef jArrayRef = (JArrayRef) rightOpTemp;
+                    rightOpTemp = jArrayRef.getBase();
+                }
+                /*if(rightOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                    rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }
+                if(leftOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                    leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }*/
+                final Value leftOp = leftOpTemp;
+                final Value rightOp = rightOpTemp;
+                List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                //To handle aliases, string concatenation, method return value source
+                if (leftOp.equivTo(srcNode.getValue())) {
+                    if (srcNode != zeroValue() && (leftOp.equivTo(srcNode.getValue()) ||
+                            (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp)))) {
+
+                        /*if (rightOp instanceof Local) {
+                            //res.add((Local) rightOp); //result.setTrackVariable((Local) rightOp);
+                        } else if (rightOp instanceof JDynamicInvokeExpr) {
+                           *//* StringConcatenationProcessor stringConcatenationProcessor =
+                                    new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
+                            stringConcatenationProcessor.process(rightOp);*//*
+                        } else if ((rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr)
+                                && stringConcatenationSource.isEmpty()) {
+                            //TODO: write logic
+                            //setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
+                        } else*/ if (rightOp instanceof JFieldRef && stringConcatenationSource.isEmpty()) {
+                            //JFieldRef jFieldRef = (JFieldRef) rightOp;
+                            //res.add(rightOp); //setResultArgumentSource(FIELD, stmt, out);
+                            if (isStaticFieldInitialized(rightOp)){
+                                methodsConsistingResult.add(icfg.getMethodOf(stmt));
+                                String hardcodedValue = staticFieldsValueMap.get(DFF.asDFF(rightOp, view));
+                                return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue)));
+                            }
+                        } else if (rightOp instanceof StringConstant && stringConcatenationSource.isEmpty()) {
+                            //res.add((Local) rightOp); //setResultArgumentSource(LOCAL, stmt, out);
+                            methodsConsistingResult.add(icfg.getMethodOf(stmt));
+                            StringConstant hardcodedValue = (StringConstant) rightOp;
+                            return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                            /*return new EdgeFunction<Set<String>>() {
+                                @Override
+                                public Set<String> computeTarget(Set<String> source) {
+                                    return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                }
+                                @Override
+                                public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                    return new EdgeFunctionComposer(secondFunction, this);
+                                }
+
+                                @Override
+                                public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                    if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                        return otherFunction;
+                                    } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                        return this;
+                                    } else {
+                                        return this;
+                                    }
+                                }
+
+                                @Override
+                                public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                    return this.equals(other);
+                                }
+                            };*/
+                        }/* else if (!stringConcatenationSource.isEmpty()) {
+                            //updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                        }*/
+                    }
+                }
+                //return res;
+                /*}
+            };*/
+
+            } else if (stmt instanceof JIdentityStmt) {
+                /*JIdentityStmt jIdentityStmt = (JIdentityStmt) stmt;
+                Value leftOp = jIdentityStmt.getLeftOp();
+                Value rightOp = jIdentityStmt.getRightOp();
+                List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                return new FlowFunction<Value>() {
+                    @Override
+                    public Set<Value> computeTargets(Value source) {
+                        Set<Value> res = new HashSet<>();
+                        res.add(source);
+                        if (source != zeroValue() && (leftOp.equivTo(source) ||
+                                (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp)))) {
+                            if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
+                                //res.add((Local) rightOp);//setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                            } else if (!stringConcatenationSource.isEmpty()) {
+                                updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                            }
+                        }
+                        return res;
+                    }
+                };*/
+            } else if (stmt instanceof JInvokeStmt) {
+                JInvokeStmt jInvokeStmt = (JInvokeStmt) stmt;
+                AbstractInvokeExpr abstractInvokeExpr = jInvokeStmt.getInvokeExpr().orElse(null);
+                if (abstractInvokeExpr instanceof JSpecialInvokeExpr) {
+                    JSpecialInvokeExpr jSpecialInvokeExpr = (JSpecialInvokeExpr) abstractInvokeExpr;
+                    Local baseVariable = jSpecialInvokeExpr.getBase();
+                    List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                    if (baseVariable == srcNode.getValue()) {
+                    /*return new FlowFunction<Value>() {
+                        @Override
+                        public Set<Value> computeTargets(Value source) {
+                            Set<Value> res = new HashSet<>();
+                            res.add(source);*/
+                        if (srcNode != zeroValue() && (baseVariable.equivTo(srcNode.getValue()) ||
+                                (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(baseVariable)))) {
+                            MethodSignature specialInvokeMethodSignature = jSpecialInvokeExpr.getMethodSignature();
+                            if (isNewStringObjectCreationSignature(specialInvokeMethodSignature, view)) {
+                                Value parameter = jSpecialInvokeExpr.getArg(0);
+                                if (parameter instanceof Local) {
+                                    //res.add((Local) parameter); //result.setTrackVariable((Local) parameter);
+                                } else if (parameter instanceof StringConstant && stringConcatenationSource.isEmpty()) {
+                                    //res.add((Local) parameter); //setResultArgumentSource(LOCAL, stmt, out);
+                                    StringConstant hardcodedValue = (StringConstant) parameter;
+                                    methodsConsistingResult.add(icfg.getMethodOf(stmt));
+                                    return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                                    /*return new EdgeFunction<Set<String>>() {
+                                        @Override
+                                        public Set<String> computeTarget(Set<String> source) {
+                                            return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                        }
+                                        @Override
+                                        public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                            return new EdgeFunctionComposer(secondFunction, this);
+                                        }
+
+                                        @Override
+                                        public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                            if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                                return otherFunction;
+                                            } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                                return this;
+                                            } else {
+                                                return this;
+                                            }
+                                        }
+
+                                        @Override
+                                        public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                            return this.equals(other);
+                                        }
+                                    };*/
+                                } else if (!stringConcatenationSource.isEmpty()) {
+                                    //updateStringConcatenationSource(baseVariable, parameter, stmt, out);
+                                }
+                            }
+                    /*if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
+                        setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                    } else if (!stringConcatenationSource.isEmpty()) {
+                        updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                    }*/
+                        }
+                        //return res;
+                       /* }
+                    };*/
+                    }
+                }
+            }
+        }
+        return EdgeIdentity.v();
+    }
+
+    private EdgeFunction<Set<String>> createEdgeFunctionsForNewInstanceReflection(Stmt stmt, DFF srcNode, DFF tgtNode) {
+        if (hardCoddedResult.equivTo(tgtNode.getValue())) {
+            if (stmt instanceof JAssignStmt) {
+                JAssignStmt jAssignStmt = (JAssignStmt) stmt;
+                Value leftOpTemp = jAssignStmt.getLeftOp();
+                Value rightOpTemp = jAssignStmt.getRightOp();
+                if (rightOpTemp instanceof JCastExpr) {
+                    JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
+                    rightOpTemp = jCastExpr.getOp();
+                }
+                /*if(rightOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                    rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }
+                if(leftOpTemp instanceof JInstanceFieldRef) {
+                    JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                    leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                            , jInstanceFieldRef.getFieldSignature());
+                }*/
+                final Value leftOp = leftOpTemp;
+                final Value rightOp = rightOpTemp;
+                //List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                //To handle aliases, string concatenation, method return value source
+                        if (srcNode != zeroValue() && leftOp.equivTo(srcNode.getValue()) /*||
+                    (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))*/) {
+
+
+                           /* if (rightOp instanceof Local) {
+                                res.add((Local) rightOp);//result.setTrackVariable((Local) rightOp);
+                            } *//*else if (rightOp instanceof JDynamicInvokeExpr) {
+                    StringConcatenationProcessor stringConcatenationProcessor =
+                            new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
+                    stringConcatenationProcessor.process(rightOp);
+                } else*/ if (/*(*/rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr/*)
+                        && stringConcatenationSource.isEmpty()*/) {
+                                AbstractInvokeExpr abstractInvokeExpr = (AbstractInvokeExpr) rightOp;
+                                //MethodSignature getConstructorMethodSignature = buildGetConstructorMethodSignature();
+                                MethodSignature classForNameMethodSignature = buildClassForNameMethodSignature();
+                                MethodSignature loadClassMethodSignature = buildLoadClassMethodSignature();
+                                /*if (getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
+                                    Local local = getJVirtualInvokeExpr(stmt).getBase();
+                                    if (local instanceof Local) {
+                                        res.add((Local) local);//result.setTrackVariable((Local) local);
+                                    }
+                                } else*/
+                                if (classForNameMethodSignature.equals(abstractInvokeExpr.getMethodSignature()) ||
+                                        loadClassMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
+                                    Immediate local = getAbstractInvokeExpr(stmt).getArg(0);
+                                    /*if (local instanceof Local) {
+                                        res.add((Local) local);
+                                    } else */if (local instanceof StringConstant) {
+                                        methodsConsistingResult.add(icfg.getMethodOf(stmt));
+                                        StringConstant hardcodedValue = (StringConstant) local;
+                                        return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                                        /*return new EdgeFunction<Set<String>>() {
+                                            @Override
+                                            public Set<String> computeTarget(Set<String> source) {
+                                                return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                            }
+                                            @Override
+                                            public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                                return new EdgeFunctionComposer(secondFunction, this);
+                                            }
+
+                                            @Override
+                                            public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                                if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                                    return otherFunction;
+                                                } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                                    return this;
+                                                } else {
+                                                    return this;
+                                                }
+                                            }
+
+                                            @Override
+                                            public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                                return this.equals(other);
+                                            }
+                                        };*/
+                                    }
+                                } else {
+                                    //TODO: write logic
+                                    //setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
+                                }
+                            } else if (rightOp instanceof JFieldRef && stringConcatenationSource.isEmpty()) {
+                                //res.add(rightOp);//setResultArgumentSource(FIELD, stmt, out);
+                                if (isStaticFieldInitialized(rightOp)){
+                                    methodsConsistingResult.add(icfg.getMethodOf(stmt));
+                                    String hardcodedValue = staticFieldsValueMap.get(DFF.asDFF(rightOp, view));
+                                    return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue)));
+                                }
+                            } else if (rightOp instanceof ClassConstant /*&& stringConcatenationSource.isEmpty()*/) {
+                                //res.add(hardCoddedResult);//setResultArgumentSource(LOCAL, stmt, out);
+                                methodsConsistingResult.add(icfg.getMethodOf(stmt));
+                                ClassConstant hardcodedValue = (ClassConstant) rightOp;
+                                return new StringAssignEdgeFunction(new HashSet<>(Arrays.asList(hardcodedValue.getValue())));
+                                /*return new EdgeFunction<Set<String>>() {
+                                    @Override
+                                    public Set<String> computeTarget(Set<String> source) {
+                                        return new HashSet<String>(Arrays.asList(hardcodedValue.getValue()));
+                                    }
+                                    @Override
+                                    public EdgeFunction<Set<String>> composeWith(EdgeFunction<Set<String>> secondFunction) {
+                                        return new EdgeFunctionComposer(secondFunction, this);
+                                    }
+
+                                    @Override
+                                    public EdgeFunction<Set<String>> meetWith(EdgeFunction<Set<String>> otherFunction) {
+                                        if (ALL_BOTTOM.equals(this) && !ALL_BOTTOM.equals(otherFunction)) {
+                                            return otherFunction;
+                                        } else if (!ALL_BOTTOM.equals(this) && ALL_BOTTOM.equals(otherFunction)) {
+                                            return this;
+                                        } else {
+                                            return this;
+                                        }
+                                    }
+
+                                    @Override
+                                    public boolean equalTo(EdgeFunction<Set<String>> other) {
+                                        return this.equals(other);
+                                    }
+                                };*/
+                            }/* else if (!stringConcatenationSource.isEmpty()) {
+                    updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                }*/
+                        }
+                        //return res;
+                    /*}
+                };*/
+            } else if (stmt instanceof JIdentityStmt) {
+                JIdentityStmt jIdentityStmt = (JIdentityStmt) stmt;
+                Value leftOp = jIdentityStmt.getLeftOp();
+                Value rightOp = jIdentityStmt.getRightOp();
+                /*List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();*/
+                /*if (leftOp.equivTo(result.getTrackVariable()) *//*||
+                    (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))*//*) {
+                if (rightOp instanceof JParameterRef *//*&& stringConcatenationSource.isEmpty()*//*) {
+                    setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                }*//* else if (!stringConcatenationSource.isEmpty()) {
+                    updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                }*//*
+            }*/
+            }
+        }
+        return EdgeIdentity.v();
+    }
+
+    @Override
+    protected FlowFunctions<Stmt, DFF, SootMethod> createFlowFunctionsFactory() {
+        return new FlowFunctions<Stmt, DFF, SootMethod>() {
+            @Override
+            public FlowFunction<DFF> getNormalFlowFunction(Stmt curr, Stmt succ) {
+                log.info("getNormalFlowFunction: " + curr.toString());
+                if (isTraditionalReflection) {
+                    if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                        return analyzeMethodAndFieldReflection(null /*out*/, curr, false);
+                    } else if (isTraditionalNewInstanceReflection) {
+                        return analyzeNewInstanceReflection(null /*out*/, curr, false);
+                    }
+                } else {
+                    if (isModernMethodReflection || isModernFieldReflection) {
+                        return analyzeMethodAndFieldReflection(null /*out*/, curr, true);
+                    } else if (isModernNewInstanceReflection) {
+                        return analyzeNewInstanceReflection(null /*out*/, curr, true);
+                    }
+                }
+                return Identity.v();
+            }
+
+            @Override
+            public FlowFunction<DFF> getCallFlowFunction(Stmt callStmt, SootMethod dest) {
+                log.info("getCallFlowFunction: " + callStmt.toString());
+                if (callStmt != null) {
+                    if (callStmt instanceof AbstractDefinitionStmt) {
+                        AbstractDefinitionStmt defnStmt = (AbstractDefinitionStmt) callStmt;
+                        Value leftOp = defnStmt.getLeftOp();
+                        Stmt destMethodFirstStmt = icfg.getStartPointsOf(dest).stream().findFirst().get();//dest.getBody().getStmtGraph().
+                        AbstractInvokeExpr ie = getAbstractInvokeExpr(callStmt);
+                        if (destMethodFirstStmt instanceof JReturnStmt) {
+                            JReturnStmt returnStmt = (JReturnStmt) destMethodFirstStmt;
+                            Value returnStmtOpValue = returnStmt.getOp();
+                            /*return new FlowFunction<DFF>() {
+                                @Override
+                                public Set<DFF> computeTargets(DFF source) {
+                                    if (source == leftOp) {*/
+                                        if (returnStmtOpValue instanceof StringConstant) {
+                                            //return Collections.singleton(hardCoddedResult);
+                                            return new ReturnFF(hardCoddedResult, leftOp, new FieldStoreAliasHandler(dest, destMethodFirstStmt,
+                                                                                                                     hardCoddedResult, view, callGraph, entryPoints),
+                                                                view);
+                                        } else if (returnStmtOpValue instanceof ClassConstant) {
+                                            //return Collections.singleton(hardCoddedResult);
+                                            return new ReturnFF(hardCoddedResult, leftOp, new FieldStoreAliasHandler(dest, destMethodFirstStmt,
+                                                                                                                     hardCoddedResult, view, callGraph, entryPoints),
+                                                                view);
+                                        } else {
+                                            //return Collections.singleton((Local) returnStmtOpValue);
+                                            return new ReturnFF(returnStmtOpValue, leftOp, new FieldStoreAliasHandler(dest, destMethodFirstStmt,
+                                                                                                               returnStmtOpValue, view, callGraph, entryPoints),
+                                                                view);
+                                        }
+                                    /*}
+                                    return Collections.emptySet();
+                                }
+                            };*/
+                        }
+                    } else if (callStmt instanceof JInvokeStmt) {
+
+                    }
+                }
+                return Identity.v();
+            }
+
+            @Override
+            public FlowFunction<DFF> getReturnFlowFunction(Stmt callSite, SootMethod calleeMethod, Stmt exitStmt, Stmt returnSite) {
+                log.info("getReturnFlowFunction: returnSite = {} , callSite = {}", returnSite, callSite);
+                //Stmt s = callStmt;
+                if (callSite != null) {
+                    AbstractInvokeExpr ie = getAbstractInvokeExpr(callSite);//s.getInvokeExpr();
+                    if (ie == null) {
+                        log.error("Unexpected callSite Stmt: {}", callSite);
+                    } else {
+                        final List<Immediate> callArgs = ie.getArgs();
+                        final List<Immediate> paramLocals = new ArrayList<>(callArgs.size());
+                        for (int i = 0; i < calleeMethod.getParameterCount(); i++) {
+                            paramLocals.add(calleeMethod.getBody().getParameterLocal(i));
+                        }
+                        //ignore implicit calls to static initializers
+                        if (/*dest.getName().equals("<clinit>") &&*/ callArgs.size() == 0) {
+                            //TODO: write logic
+                            //return Collections.emptySet();
+                        } else {
+                        /*return new FlowFunction<Value>() {
+                            @Override
+                            public Set<Value> computeTargets(Value source) {
+                                Set<Value> res = new HashSet<>();
+                                for (int i = 0; i < paramLocals.size(); i++) {
+                                    // Special case: check if function is called with integer literals as params
+                                *//*if (paramLocals.get(i) instanceof StringConstant && source == zeroValue()) {
+                                    res.add((Local) callArgs.get(i));
+                                }*//*
+                                    // Ordinary case: just perform the mapping
+                                    if (paramLocals.get(i) == source) {
+                                        if (!(callArgs.get(i) instanceof StringConstant || callArgs.get(i) instanceof ClassConstant)) {
+                                            res.add((Local) callArgs.get(i));
+                                        } else {
+                                            // Special case: check if function is called with integer literals as params
+                                            res.add(hardCoddedResult);
+                                        }
+                                    }
+                                }
+                                return res;
+                            }
+                        };*/
+                            return new CallFF(paramLocals, calleeMethod, zeroValue(), callArgs, hardCoddedResult, view);
+                        }
+                    }
+                }
+                return Identity.v();
+            }
+
+            @Override
+            public FlowFunction<DFF> getCallToReturnFlowFunction(Stmt callSite, Stmt returnSite) {
+                log.info("getCallToReturnFlowFunction: " + callSite.toString());
+                if (callSite.equivTo(startStmt)) {
+                    /*JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callSite);
+                    Immediate argument = jVirtualInvokeExpr.getArg(0);
+                    if (argument instanceof StringConstant) {
+                        return new Gen(hardCoddedResult, zeroValue());
+                    }*/
+                    //Determine the type of reflection
+                    JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(callSite);
+                    if (isTraditionalReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                        isTraditionalReflection = true;
+                        if (isTraditionalNewInstanceReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                            isTraditionalNewInstanceReflection = true;
+                        } else if (isTraditionalMethodReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                            isTraditionalMethodReflection = true;
+                        } else if (isTraditionalFieldReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                            isTraditionalFieldReflection = true;
+                        }
+                    } else {
+                        if (isModernNewInstanceReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                            isModernNewInstanceReflection = true;
+                        } else if (isModernMethodReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                            isModernMethodReflection = true;
+                        } else if (isModernFieldReflection(jVirtualInvokeExpr.getMethodSignature(), view)) {
+                            isModernFieldReflection = true;
+                        }
+                    }
+                }
+
+                if (isTraditionalReflection) {
+                    if (isTraditionalMethodReflection || isTraditionalFieldReflection) {
+                        return analyzeMethodAndFieldReflection(null /*out*/, callSite, false);
+                    } else if (isTraditionalNewInstanceReflection) {
+                        return analyzeNewInstanceReflection(null /*out*/, callSite, false);
+                    }
+                } else {
+                    if (isModernMethodReflection || isModernFieldReflection) {
+                        return analyzeMethodAndFieldReflection(null /*out*/, callSite, true);
+                    } else if (isModernNewInstanceReflection) {
+                        return analyzeNewInstanceReflection(null /*out*/, callSite, true);
+                    }
+                }
+                return Identity.v();
+            }
+        };
+    }
+
+    private FlowFunction<DFF> analyzeMethodAndFieldReflection(Set<Result> out, Stmt stmt, boolean isModernReflection) {
+        if (stmt.equivTo(startStmt)) {
+            JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
+            Immediate argument;
+            if (isModernReflection) {
+                argument = jVirtualInvokeExpr.getArg(1);
+            } else {
+                argument = jVirtualInvokeExpr.getArg(0);
+            }
+            if (argument instanceof StringConstant) {
+                return new Gen(new DFF(hardCoddedResult, stmt, view), zeroValue()); //setResultArgumentSource(LOCAL, stmt, out);
+            } else if (argument instanceof Local) {
+                return new Gen(new DFF(argument, stmt, view), zeroValue()); //result.setTrackVariable((Local) argument);
+            } else if (argument instanceof JFieldRef) {
+                if (isStaticFieldInitialized(argument)){
+                    return new Gen(new DFF(hardCoddedResult, stmt, view), zeroValue());
+                } else {
+                    return new Gen(new DFF(argument, stmt, view), zeroValue());
+                }
+            }
+        } else if (stmt instanceof JAssignStmt) {
+            JAssignStmt jAssignStmt = (JAssignStmt) stmt;
+            Value leftOpTemp = jAssignStmt.getLeftOp();
+            Value rightOpTemp = jAssignStmt.getRightOp();
+            if (rightOpTemp instanceof JCastExpr) {
+                JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
+                rightOpTemp = jCastExpr.getOp();
+            }
+            if (rightOpTemp instanceof JArrayRef) {
+                JArrayRef jArrayRef = (JArrayRef) rightOpTemp;
+                rightOpTemp = jArrayRef.getBase();
+            }
+            /*if(rightOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }
+            if(leftOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }*/
+            final Value leftOp = leftOpTemp;
+            final Value rightOp = rightOpTemp;
+            List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            //To handle aliases, string concatenation, method return value source
+            /*return new FlowFunction<Value>() {
+                @Override
+                public Set<Value> computeTargets(Value source) {
+                    Set<Value> res = new HashSet<>();
+                    res.add(source);
+                    if (source != zeroValue() && (leftOp.equivTo(source) ||
+                            (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp)))) {*/
+
+                        if (rightOp instanceof Local) {
+                            //res.add((Local) rightOp); //result.setTrackVariable((Local) rightOp);
+                            return new LocalFF(leftOp, rightOp, zeroValue(),
+                                        AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, rightOp, view, callGraph, entryPoints),
+                                               view);
+                        } else if (rightOp instanceof JDynamicInvokeExpr) {
+                            //TODO: undo for string concat and change logic
+                            /*StringConcatenationProcessor stringConcatenationProcessor =
+                                    new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
+                            stringConcatenationProcessor.process(rightOp);*/
+                        } else if ((rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr)
+                                && stringConcatenationSource.isEmpty()) {
+                            //TODO: write logic
+                            //setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
+                        } else if (rightOp instanceof JFieldRef && stringConcatenationSource.isEmpty()) {
+                            //JFieldRef jFieldRef = (JFieldRef) rightOp;
+                           // res.add(rightOp); //setResultArgumentSource(FIELD, stmt, out);
+                            if (isStaticFieldInitialized(rightOp)){
+                                return new LocalFF(leftOp, hardCoddedResult, zeroValue(),
+                                                   AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult,
+                                                                            view, callGraph, entryPoints),
+                                                   view);
+                            } else {
+                                return new FieldLoadFF(leftOp, rightOp, zeroValue(),
+                                            AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, rightOp, view, callGraph, entryPoints),
+                                                   view);
+                            }
+                        } else if (rightOp instanceof StringConstant && stringConcatenationSource.isEmpty()) {
+                           // res.add(hardCoddedResult);//res.add((Local) rightOp); //setResultArgumentSource(LOCAL, stmt, out);
+                            /*return new ConstantFF(new DFF(hardCoddedResult, stmt, view), zeroValue(),
+                                           AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult, view, callGraph, entryPoints));*/
+                            return new LocalFF(leftOp, hardCoddedResult, zeroValue(),
+                                               AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult,
+                                                                        view, callGraph, entryPoints),
+                                               view);
+                        } else if (!stringConcatenationSource.isEmpty()) {
+                            //TODO: undo for string concat and change logic
+                            //updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                        }
+                    //}
+                   // return res;
+                /*}
+            };*/
+
+        } else if (stmt instanceof JIdentityStmt) {
+            JIdentityStmt jIdentityStmt = (JIdentityStmt) stmt;
+            Value leftOp = jIdentityStmt.getLeftOp();
+            Value rightOp = jIdentityStmt.getRightOp();
+            List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            return new FlowFunction<DFF>() {
+                @Override
+                public Set<DFF> computeTargets(DFF source) {
+                    Set<DFF> res = new HashSet<>();
+                    res.add(source);
+                    if (source != zeroValue() && (leftOp.equivTo(source) ||
+                            (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp)))) {
+                        if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
+                            //res.add((Local) rightOp);//setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                        } else if (!stringConcatenationSource.isEmpty()) {
+                            //TODO: undo for string concat and change logic
+                            //updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                        }
+                    }
+                    return res;
+                }
+            };
+        } else if (stmt instanceof JInvokeStmt) {
+            JInvokeStmt jInvokeStmt = (JInvokeStmt) stmt;
+            AbstractInvokeExpr abstractInvokeExpr = jInvokeStmt.getInvokeExpr().orElse(null);
+            if (abstractInvokeExpr instanceof JSpecialInvokeExpr) {
+                JSpecialInvokeExpr jSpecialInvokeExpr = (JSpecialInvokeExpr) abstractInvokeExpr;
+                Local baseVariable = jSpecialInvokeExpr.getBase();
+                List<Local> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+                /*return new FlowFunction<Value>() {
+                    @Override
+                    public Set<Value> computeTargets(Value source) {
+                        Set<Value> res = new HashSet<>();
+                        res.add(source);
+                        if (source != zeroValue() && (baseVariable.equivTo(source) ||
+                                (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(baseVariable)))) {*/
+                            MethodSignature specialInvokeMethodSignature = jSpecialInvokeExpr.getMethodSignature();
+                            if (isNewStringObjectCreationSignature(specialInvokeMethodSignature, view)) {
+                                Value parameter = jSpecialInvokeExpr.getArg(0);
+                                if (parameter instanceof Local) {
+                                    //res.add((Local) parameter); //result.setTrackVariable((Local) parameter);
+                                    return new LocalFF(baseVariable, parameter, zeroValue(),
+                                                       AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, parameter, view, callGraph, entryPoints),
+                                                       view);
+                                } else if (parameter instanceof StringConstant && stringConcatenationSource.isEmpty()) {
+                                    //res.add(hardCoddedResult);//res.add((Local) parameter); //setResultArgumentSource(LOCAL, stmt, out);
+                                    /*return new ConstantFF(new DFF(hardCoddedResult, stmt, view), zeroValue(),
+                                                          AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult, view, callGraph, entryPoints));*/
+                                    return new LocalFF(baseVariable, hardCoddedResult, zeroValue(),
+                                                       AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult,
+                                                                                view, callGraph, entryPoints),
+                                                       view);
+                                } else if (!stringConcatenationSource.isEmpty()) {
+                                    //TODO: undo for string concat and change logic
+                                    //updateStringConcatenationSource(baseVariable, parameter, stmt, out);
+                                }
+                            }
+                    /*if (rightOp instanceof JParameterRef && stringConcatenationSource.isEmpty()) {
+                        setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                    } else if (!stringConcatenationSource.isEmpty()) {
+                        updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                    }*/
+                        /*}
+                        return res;
+                    }
+                };*/
+            }
+        }
+        return Identity.v();
+    }
+
+    private boolean isStaticFieldInitialized(Value value) {
+        if (value instanceof JStaticFieldRef) {
+            return staticFieldsValueMap.containsKey(DFF.asDFF(value, view));
+        }
+        return false;
+    }
+
+    private FlowFunction<DFF> analyzeNewInstanceReflection(Set<Result> out, Stmt stmt, boolean isModernReflection) {
+        if (stmt.equivTo(startStmt)) {
+            JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(stmt);
+            Immediate immediate;
+            if (isModernReflection) {
+                immediate = jVirtualInvokeExpr.getArg(0);
+            } else {
+                immediate = jVirtualInvokeExpr.getBase();
+            }
+
+            if (immediate instanceof ClassConstant) {
+                return new Gen(new DFF(hardCoddedResult, stmt, view), zeroValue());//setResultArgumentSource(LOCAL, stmt, out);
+            } else if (immediate instanceof Local) {
+                return new Gen(new DFF(immediate, stmt, view), zeroValue());//result.setTrackVariable((Local) immediate);
+            }  else if (immediate instanceof JFieldRef) {
+                if (isStaticFieldInitialized(immediate)){
+                    return new Gen(new DFF(hardCoddedResult, stmt, view), zeroValue());
+                } else {
+                    return new Gen(new DFF(immediate, stmt, view), zeroValue());
+                }
+            }
+        } else if (stmt instanceof JAssignStmt) {
+            JAssignStmt jAssignStmt = (JAssignStmt) stmt;
+            Value leftOpTemp = jAssignStmt.getLeftOp();
+            Value rightOpTemp = jAssignStmt.getRightOp();
+            if (rightOpTemp instanceof JCastExpr) {
+                JCastExpr jCastExpr = (JCastExpr) rightOpTemp;
+                rightOpTemp = jCastExpr.getOp();
+            }
+            /*if(rightOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) rightOpTemp;
+                rightOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }
+            if(leftOpTemp instanceof JInstanceFieldRef) {
+                JInstanceFieldRef jInstanceFieldRef = (JInstanceFieldRef) leftOpTemp;
+                leftOpTemp = new JInstanceFieldRef(new Local("<<dummyBase>>", NullType.getInstance())
+                        , jInstanceFieldRef.getFieldSignature());
+            }*/
+            final Value leftOp = leftOpTemp;
+            final Value rightOp = rightOpTemp;
+            //List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            //To handle aliases, string concatenation, method return value source
+            /*return new FlowFunction<DFF>() {
+                @Override
+                public Set<DFF> computeTargets(DFF source) {
+                    Set<DFF> res = new HashSet<>();
+                    res.add(source);
+                    if (source != zeroValue() && leftOp.equivTo(source) *//*||
+                    (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))*//*) {*/
+
+
+                        if (rightOp instanceof Local) {
+                            //res.add((Local) rightOp);//result.setTrackVariable((Local) rightOp);
+                            return new LocalFF(leftOp, rightOp, zeroValue(),
+                                               AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, rightOp, view, callGraph, entryPoints),
+                                               view);
+                        } /*else if (rightOp instanceof JDynamicInvokeExpr) {
+                    StringConcatenationProcessor stringConcatenationProcessor =
+                            new StringConcatenationProcessor(view, leftOp, out, stmt, stringConcatenationSource);
+                    stringConcatenationProcessor.process(rightOp);
+                }*/ else if (/*(*/rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr/*)
+                        && stringConcatenationSource.isEmpty()*/) {
+                            AbstractInvokeExpr abstractInvokeExpr = (AbstractInvokeExpr) rightOp;
+                            MethodSignature getConstructorMethodSignature = buildGetConstructorMethodSignature();
+                            MethodSignature classForNameMethodSignature = buildClassForNameMethodSignature();
+                            MethodSignature loadClassMethodSignature = buildLoadClassMethodSignature();
+                            if (getConstructorMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
+                                Local local = getJVirtualInvokeExpr(stmt).getBase();
+                                if (local instanceof Local) {
+                                    //res.add((Local) local);//result.setTrackVariable((Local) local);
+                                    return new LocalFF(leftOp, local, zeroValue(),
+                                                       AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, local, view, callGraph, entryPoints),
+                                                       view);
+                                }
+                            } else if (classForNameMethodSignature.equals(abstractInvokeExpr.getMethodSignature()) ||
+                                    loadClassMethodSignature.equals(abstractInvokeExpr.getMethodSignature())) {
+                                Immediate immediate = getAbstractInvokeExpr(stmt).getArg(0);
+                                if (immediate instanceof Local) {
+                                    //res.add((Local) immediate);
+                                    return new LocalFF(leftOp, immediate, zeroValue(),
+                                                       AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, immediate, view, callGraph, entryPoints),
+                                                       view);
+                                } else if (immediate instanceof StringConstant) {
+                                    //res.add(hardCoddedResult);
+                                    /*return new ConstantFF(new DFF(hardCoddedResult, stmt, view), zeroValue(),
+                                                          AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult, view, callGraph, entryPoints));*/
+                                    return new LocalFF(leftOp, hardCoddedResult, zeroValue(),
+                                                       AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult,
+                                                                                view, callGraph, entryPoints),
+                                                       view);
+                                }
+                            } else {
+                                //TODO: write logic
+                                //setResultArgumentSource(RETURN_FROM_METHOD, stmt, out);
+                            }
+                        } else if (rightOp instanceof JFieldRef /*&& stringConcatenationSource.isEmpty()*/) {
+                            //res.add(rightOp);//setResultArgumentSource(FIELD, stmt, out);
+                            if (isStaticFieldInitialized(rightOp)){
+                                return new LocalFF(leftOp, hardCoddedResult, zeroValue(),
+                                                   AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult,
+                                                                            view, callGraph, entryPoints),
+                                                   view);
+                            } else {
+                                return new FieldLoadFF(leftOp, rightOp, zeroValue(),
+                                                   AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, rightOp, view, callGraph, entryPoints),
+                                                   view);
+                            }
+                        } else if (rightOp instanceof ClassConstant /*&& stringConcatenationSource.isEmpty()*/) {
+                            //res.add(hardCoddedResult);//setResultArgumentSource(LOCAL, stmt, out);
+                            /*return new ConstantFF(new DFF(hardCoddedResult, stmt, view), zeroValue(),
+                                                  AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult, view, callGraph, entryPoints));*/
+                            return new LocalFF(leftOp, hardCoddedResult, zeroValue(),
+                                               AliasHandlerProvider.get(icfg.getMethodOf(stmt), stmt, hardCoddedResult,
+                                                                        view, callGraph, entryPoints),
+                                               view);
+                        }/* else if (!stringConcatenationSource.isEmpty()) {
+                    updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                }*/
+                   /* }
+                    return res;
+                }
+            };*/
+        } else if (stmt instanceof JIdentityStmt) {
+            JIdentityStmt jIdentityStmt = (JIdentityStmt) stmt;
+            Value leftOp = jIdentityStmt.getLeftOp();
+            Value rightOp = jIdentityStmt.getRightOp();
+            /*List<JavaLocal> stringConcatVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();*/
+            /*if (leftOp.equivTo(result.getTrackVariable()) *//*||
+                    (stringConcatVariablesToTrack != null && stringConcatVariablesToTrack.contains(leftOp))*//*) {
+                if (rightOp instanceof JParameterRef *//*&& stringConcatenationSource.isEmpty()*//*) {
+                    setResultArgumentSource(METHOD_PARAMETER, stmt, out);
+                }*//* else if (!stringConcatenationSource.isEmpty()) {
+                    updateStringConcatenationSource(leftOp, rightOp, stmt, out);
+                }*//*
+            }*/
+        }
+        return Identity.v();
+    }
+
+    private MethodSignature buildGetConstructorMethodSignature() {
+        ClassType classType = view.getIdentifierFactory().getClassType("java.lang.Class");
+        return view.getIdentifierFactory()
+                   .getMethodSignature(classType, "getConstructor", "java.lang.reflect.Constructor", Arrays.asList("java.lang.Class[]"));
+    }
+
+    private MethodSignature buildClassForNameMethodSignature() {
+        ClassType classType = view.getIdentifierFactory().getClassType("java.lang.Class");
+        return view.getIdentifierFactory()
+                   .getMethodSignature(classType, "forName", "java.lang.Class", Arrays.asList("java.lang.String"));
+    }
+
+    private MethodSignature buildLoadClassMethodSignature() {
+        ClassType classType = view.getIdentifierFactory().getClassType("java.lang.ClassLoader");
+        return view.getIdentifierFactory()
+                   .getMethodSignature(classType, "loadClass", "java.lang.Class", Arrays.asList("java.lang.String"));
+    }
+
+    private void updateStringConcatenationSource(Value leftOp, Value rightOp, Stmt stmt, Set<Result> out) {
+
+        if (rightOp instanceof AbstractInstanceInvokeExpr || rightOp instanceof JStaticInvokeExpr) {
+            setStringConcatenationArgumentSource(RETURN_FROM_METHOD, leftOp, stmt, out);
+        } else if (rightOp instanceof JFieldRef) {
+            setStringConcatenationArgumentSource(FIELD, leftOp, stmt, out);
+        } else if (rightOp instanceof JParameterRef) {
+            setStringConcatenationArgumentSource(METHOD_PARAMETER, leftOp, stmt, out);
+        } else if (rightOp instanceof StringConstant) {
+            setStringConcatenationArgumentSource(LOCAL, leftOp, stmt, out);
+        }
+    }
+
+    private void setStringConcatenationArgumentSource(ArgumentSource argumentSource, Value leftOp, Stmt stmt, Set<Result> out) {
+        stringConcatenationSource.getArgumentSources().add(argumentSource);
+        if (!CollectionUtils.isEmpty(stringConcatenationSource.getNextVariablesToTrack())) {
+            List<Local> nextVariablesToTrack = stringConcatenationSource.getNextVariablesToTrack();
+            //result.setTrackVariable(nextVariablesToTrack.get(0));
+            stringConcatenationSource.getNextVariablesToTrack().remove(leftOp/*result.getTrackVariable()*/);
+        } else {
+            //
+            LinePosition linePosition;// = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+            try {
+                linePosition = (LinePosition) stmt.getPositionInfo().getStmtPosition();
+            } catch (Exception e) {
+                linePosition = null;
+                e.printStackTrace();
+            }
+            out.add(Result.builder()
+                          .statementLineNumber(linePosition == null ? -1 : linePosition.getFirstLine())
+                          .argumentSource(argumentSource)
+                          .build());
+        }
+    }
+
+    @Override
+    protected DFF createZeroValue() {
+        return DFF.asDFF(new Local("<<zero>>", NullType.getInstance()), view);
+    }
+
+    @Override
+    public Map<Stmt, Set<DFF>> initialSeeds() {
+        /*for (MethodSignature methodSignature : entryPoints) {
+            SootMethod m = view.getMethod(methodSignature).get();
+            if (!m.hasBody()) {
+                continue;
+            }
+            return DefaultSeeds.make(Collections.singleton(icfg.getStartPointsOf(m).stream().findFirst().get()), zeroValue());
+        }
+        throw new IllegalStateException("View does not contain entryPoint " + entryPoints);*/
+        return DefaultSeeds.make(Collections.singleton(startStmt), zeroValue());
+    }
+
+    @Override
+    public boolean followReturnsPastSeeds() {
+        return true;
+    }
+
+    public Set<SootMethod> getMethodsConsistingResult(){
+        return methodsConsistingResult;
+    }
+}

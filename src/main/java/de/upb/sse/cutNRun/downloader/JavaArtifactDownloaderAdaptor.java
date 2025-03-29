@@ -34,7 +34,7 @@ public class JavaArtifactDownloaderAdaptor implements ArtifactDownloaderPort {
     private static final String RELATIVE_JAR_RESOURCES_PATH = "jars/";
     private static final String JAR_FILE_EXTENSION = ".jar";
     private static final String JAR_SOURCES = "jar:sources";
-    private static final String JAVA_FILTER_PROJECTS_FILENAME = "Total_Java_And_NonJava_Projects_Considered";
+    private static final String JAVA_FILTER_PROJECTS_FILENAME = "Total_Java_And_NonJava_Projects_Considered_duplicate";
     private final ResourceLoader resourceLoader;
     private Float javaFilePercentage;
     @Value("${jar.resource.path}")

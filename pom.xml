@@ -101,7 +101,7 @@
 		<dependency>
 			<groupId>com.github.soot-oss</groupId>
 			<artifactId>SootUp</artifactId>
-			<version>develop-SNAPSHOT</version>
+			<version>develop-99543266d9-1</version><!--<version>develop-SNAPSHOT</version>-->
 		</dependency>
 		<dependency>
 			<groupId>org.jboss.shrinkwrap.resolver</groupId>
@@ -125,6 +125,21 @@
 			<artifactId>poi-ooxml</artifactId>
 			<version>5.2.2</version>
 		</dependency>
+		<dependency>
+			<groupId>de.fraunhofer.iem</groupId>
+			<artifactId>boomerangPDS</artifactId>
+			<version>4.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>de.fraunhofer.iem</groupId>
+			<artifactId>boomerangScope-SootUp</artifactId>
+			<version>4.0.0</version>
+		</dependency>
+		<!--<dependency>
+			<groupId>de.fraunhofer.iem</groupId>
+			<artifactId>SparseBoomerangCorrectness</artifactId>
+			<version>3.2.3</version>
+		</dependency>-->
 	</dependencies>
 
 	<build>

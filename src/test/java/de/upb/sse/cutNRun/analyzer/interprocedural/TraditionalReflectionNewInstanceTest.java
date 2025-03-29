@@ -279,6 +279,29 @@ public class TraditionalReflectionNewInstanceTest {
     }
 
     @Test
+    public void shouldAnalyze_staticfieldSource() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/NewInstance/staticField"));
+        /*ClassType classType = view.getIdentifierFactory().getClassType("NewInstanceFile5");
+        SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
+                                                   .getMethodSignature(classType, "caller", "void", List.of("java.lang.String")))
+                                    .get();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(5);
+        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+
+        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
+        argumentSourceAnalysis.execute();
+
+        Result result = argumentSourceAnalysis.getResult();
+        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
+        assertEquals(FIELD, result.getArgumentSource());
+        assertEquals(true, stringConcatResult.isEmpty());
+        assertEquals(false, argumentSourceAnalysis.isBranching());*/
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
     public void shouldAnalyzeFile6_parameterSource() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/NewInstance/File6-parameterSource"));
         /*ClassType classType = view.getIdentifierFactory().getClassType("NewInstanceFile6");

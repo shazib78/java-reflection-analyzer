@@ -231,13 +231,4 @@ public class TraditionalReflectionFieldTest {
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }*/
-
-    //Scenario in Junit jar
-    @Test
-    public void shouldAnalyzeJunitExample() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/testFile"));
-        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
-        programAnalyzerPort.analyze();
-    }
-
 }

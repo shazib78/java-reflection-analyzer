@@ -6,6 +6,7 @@ import sootup.callgraph.CallGraph;
 import sootup.core.graph.StmtGraph;
 import sootup.core.jimple.basic.Value;
 import sootup.core.jimple.common.expr.JInterfaceInvokeExpr;
+import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
 import sootup.core.model.SootClass;
 import sootup.core.model.SootMethod;
 import sootup.core.jimple.common.stmt.Stmt;
@@ -15,7 +16,7 @@ import sootup.core.views.View;
 
 import java.util.*;
 
-import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.getInterfaceInvokeExpr;
+import static de.upb.sse.cutNRun.analyzer.helper.AnalysisHelper.*;
 
 /**
  * Same as {@link JimpleBasedInterproceduralCFG} but based on inverted Stmt graphs. This should be used for backward
@@ -106,6 +107,8 @@ public class BackwardsInterproceduralCFG implements BiDiInterproceduralCFG<Stmt,
                      .collect(Collectors.toSet());*/
 
     //To find interface implementation
+    System.out.println("getCalleesOfCallAt statement class:" +n.getClass());
+    /*JVirtualInvokeExpr jVirtualInvokeExpr = getJVirtualInvokeExpr(n);
     JInterfaceInvokeExpr jInterfaceInvokeExpr = getInterfaceInvokeExpr(n);
     if (jInterfaceInvokeExpr != null) {
       Collection<SootMethod> targetMethods = new HashSet<>();
@@ -123,9 +126,25 @@ public class BackwardsInterproceduralCFG implements BiDiInterproceduralCFG<Stmt,
         }
       }
       return targetMethods;
-    } else {
+    } *//*else if(jVirtualInvokeExpr != null && !isMethodHasBody(jVirtualInvokeExpr, view) && isAbstractMethod(jVirtualInvokeExpr, view)){
+      Collection<SootMethod> targetMethods = new HashSet<>();
+      ClassType abstarctClassType = jVirtualInvokeExpr.getMethodSignature().getDeclClassType();
+      Set<CallGraph.Call> calls = ((JimpleBasedInterproceduralCFG) delegate).getCg().callsFrom(delegate.getMethodOf(n).getSignature());
+      for (CallGraph.Call call : calls) {
+        MethodSignature targetMethodSignature = call.getTargetMethodSignature();
+        SootClass targetMethodClass = view.getClass(targetMethodSignature.getDeclClassType()).orElse(null);
+        if ((targetMethodClass != null && isSubClass(targetMethodClass, abstarctClassType, view))
+                && targetMethodSignature.getSubSignature().equals(jVirtualInvokeExpr.getMethodSignature().getSubSignature())) {
+          Optional<? extends SootMethod> targetMethod = view.getMethod(targetMethodSignature);
+          if (targetMethod.isPresent()) {
+            targetMethods.add(targetMethod.get());
+          }
+        }
+      }
+      return targetMethods;
+    }*//*else {*/
       return delegate.getCalleesOfCallAt(n);
-    }
+   // }
   }
 
   // same

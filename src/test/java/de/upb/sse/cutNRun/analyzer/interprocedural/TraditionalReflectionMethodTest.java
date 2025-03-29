@@ -14,19 +14,22 @@ import sootup.analysis.interprocedural.ide.JimpleIDESolver;
 import sootup.callgraph.ClassHierarchyAnalysisAlgorithm;
 import sootup.core.graph.StmtGraph;
 import sootup.core.jimple.basic.Value;
+import sootup.core.jimple.common.constant.ClassConstant;
+import sootup.core.jimple.common.constant.Constant;
+import sootup.core.jimple.common.constant.StringConstant;
+import sootup.core.jimple.common.ref.JStaticFieldRef;
+import sootup.core.jimple.common.stmt.AbstractDefinitionStmt;
 import sootup.core.jimple.common.stmt.Stmt;
 import sootup.core.model.SootMethod;
 import sootup.core.signatures.MethodSignature;
 import sootup.core.types.ClassType;
 import sootup.core.views.View;
 import sootup.java.bytecode.frontend.inputlocation.JavaClassPathAnalysisInputLocation;
+import sootup.java.core.JavaSootMethod;
 import sootup.java.core.language.JavaJimple;
 import sootup.java.core.views.JavaView;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource.*;
@@ -180,10 +183,16 @@ class TraditionalReflectionMethodTest {
         programAnalyzerPort.analyze();
     }
 
-    //TODO: doesn't work - static field logic not written
     @Test
-    public void shouldAnalyzeFieldTestFile3() {
+    public void shouldAnalyzeStaticFieldTestFile3() {
         View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/intraprocedural/method/field/File3"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeStaticFieldFromDifferentClass() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/staticField"));
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
     }
@@ -462,42 +471,101 @@ class TraditionalReflectionMethodTest {
 
     @Test
     public void testing() {
-        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/junit-4.13.2.jar"));
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/testJars/glide-4.16.0.jar"));
 
-        /*ClassType classType = view.getIdentifierFactory().getClassType("org.apache.commons.lang3.ClassUtils");
+        /*ClassType classType = view.getIdentifierFactory().getClassType("com.google.common.collect.Serialization");
         SootMethod sootMethod = view.getMethod(view.getIdentifierFactory()
-                                                   .getMethodSignature(classType, "getPublicMethod", "java.lang.reflect.Method", List.of(
-                                                           "java.lang.Class","java.lang.String", "java.lang.Class[]")))
+                                                   .getMethodSignature(classType, "getFieldSetter", "com.google.common.collect.Serialization$FieldSetter",
+                                                                       List.of("java.lang.Class", "java.lang.String")))
                                     .get();
-        Stmt startStmt = sootMethod.getBody().getStmts().get(27);
-        StmtGraph<?> stmtGraph = sootMethod.getBody().getStmtGraph();
+        Stmt startStmt = sootMethod.getBody().getStmts().get(2);
 
-        ArgumentSourceAnalysis argumentSourceAnalysis = new ArgumentSourceAnalysis(stmtGraph, startStmt, view);
-        argumentSourceAnalysis.execute();
+        final List<MethodSignature> cgEntryPoints = view.getClasses()
+                                                        .flatMap(sootClass -> sootClass.getMethods().stream())
+                                                        .filter(sootMethod1 -> sootMethod1.isPublic())
+                                                        //.filter(sootMethod -> sootMethod.hasBody())
+                                                        .map(SootMethod::getSignature)
+                                                        .collect(Collectors.toList());
+        JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG(
+                (new ClassHierarchyAnalysisAlgorithm(view)).initialize(cgEntryPoints)
+                , view, false, true);
+        BackwardsInterproceduralCFG backwardICFG = new BackwardsInterproceduralCFG(icfg, view);
+        List<JavaSootMethod> cgEntryPointMethods = (List<JavaSootMethod>) icfg.getCg().getEntryMethods().stream()
+                                                                              .map(methodSignature -> view.getMethod(methodSignature).get())
+                                                                              .collect(Collectors.toList());
+        Map<DFF, String> staticFieldsValueMap = collectInitializedStaticField(view);
+        IDEValueAnalysisProblemDFF problem = new IDEValueAnalysisProblemDFF(backwardICFG, cgEntryPointMethods, startStmt, (JavaView) view, icfg.getCg(), staticFieldsValueMap);
+        JimpleIDESolver<DFF, Set<String>, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
+        solver.solve();
 
-        Result result = argumentSourceAnalysis.getResult();
-        StringConcatenationSource stringConcatResult = argumentSourceAnalysis.getStringConcatenationSource();
-        stmtGraph.getStmts().stream().forEach(stmt->
-                                              {
-                                                  System.out.println("====================");
-                                                  System.out.println("Stmt: [" + stmt + "]");
-                                                  System.out.println("before: " + argumentSourceAnalysis.getFlowAfter(stmt));
-                                                  System.out.println("after: " + argumentSourceAnalysis.getFlowBefore(stmt));
-                                                  System.out.println("====================");
-                                              });
-        System.out.println("Testing");
-        assertEquals(argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).size(), 2);
-        List<ArgumentSource> sources = argumentSourceAnalysis.getFlowBefore(stmtGraph.getStartingStmt()).stream()
-                                                             .map(result1 -> result1.getArgumentSource())
-                                                             .collect(Collectors.toUnmodifiableList());
-        assertTrue(CollectionUtils.isEqualCollection(sources, Arrays.asList(RETURN_FROM_METHOD, LOCAL)));
-        //assertEquals(false, stringConcatResult.isEveryStringFromSameSource());
-        //assertEquals(2, stringConcatResult.getArgumentSources().size());
-        assertTrue(stringConcatResult.isEmpty());
-        //assertEquals(UNKOWN, result.getArgumentSource());*/
+        List<Stmt> stmtsToCheckResults = problem.getMethodsConsistingResult().stream()
+                                                .flatMap(method -> backwardICFG.getEndPointsOf(method).stream())
+                                                .collect(Collectors.toList());
+        Set<String> filteredResultValues = new HashSet<>();
+        Map<DFF, Set<String>> rawResult = new HashMap<>();
+        for (Stmt stmt : stmtsToCheckResults) {
+            Map<DFF, Set<String>> result = solver.resultsAt(stmt);
+            if (!result.isEmpty()) {
+                rawResult.putAll(result);
+                for (DFF key : result.keySet()) {
+                    Set<String> values = result.get(key);
+                    System.out.println("RESULT: " + key + "=" + values);
+                    if (CollectionUtils.isNotEmpty(values) && !values.equals(new HashSet<>(Arrays.asList("<<TOP>>")))) {
+                        filteredResultValues.addAll(values);//stringBuffer.append(values.toString());
+                    }
+                }
+            }
+        }*/
 
         //For manual testing
         ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
         programAnalyzerPort.analyze();
+    }
+
+    @Test
+    public void shouldAnalyzeAbstractClass() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/file6"));
+
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    //Scenario in Junit jar
+    @Test
+    public void shouldAnalyzeJunitExample() {
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation("src/test/resources/interprocedural/method/field/testFile-setFieldInSetter"));
+        ProgramAnalyzerAdaptor programAnalyzerPort = new ProgramAnalyzerAdaptor(view, "");
+        programAnalyzerPort.analyze();
+    }
+
+    private Map<DFF, String> collectInitializedStaticField(View view) {
+        List<SootMethod> clinitMethods = view.getClasses()
+                                             .flatMap(sootClass -> sootClass.getMethods().stream())
+                                             .filter(method -> method.getName().equals("<clinit>"))
+                                             .collect(Collectors.toList());
+
+        List<Stmt> abstractDefinitionStmts = clinitMethods.stream()
+                                                          .flatMap(method -> method.getBody().getStmts().stream())
+                                                          .filter(stmt -> stmt instanceof AbstractDefinitionStmt)
+                                                          .collect(Collectors.toList());
+
+        Map<DFF, String> staticFieldValueMap = new HashMap<>();
+
+        for (Stmt definitionStmt : abstractDefinitionStmts) {
+            AbstractDefinitionStmt stmt = (AbstractDefinitionStmt) definitionStmt;
+            Value leftOp = stmt.getLeftOp();
+            Value rightOp = stmt.getRightOp();
+            if (leftOp instanceof JStaticFieldRef && rightOp instanceof Constant) {
+                String value = null;
+                if (rightOp instanceof StringConstant) {
+                    value = ((StringConstant) rightOp).getValue();
+                    staticFieldValueMap.put(DFF.asDFF(leftOp, view), value);
+                } else if (rightOp instanceof ClassConstant) {
+                    value = ((ClassConstant) rightOp).getValue();
+                    staticFieldValueMap.put(DFF.asDFF(leftOp, view), value);
+                }
+            }
+        }
+        return staticFieldValueMap;
     }
 }

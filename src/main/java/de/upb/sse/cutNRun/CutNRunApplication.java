@@ -47,26 +47,24 @@ public class CutNRunApplication implements CommandLineRunner {
 										 "src/test/resources/jars/CutNRunTestJars.jar");*/
         //TODO: uncomment to download jars
         //artifactDownloaderPort.download(artifactDetailList);
-        for (ArtifactDetailList.ArtifactDetail artifactDetail : artifactDetailList.getDetails()) {
+        /*for (ArtifactDetailList.ArtifactDetail artifactDetail : artifactDetailList.getDetails()) {
             String jarName = artifactDetail.getArtifactId() + "-" + artifactDetail.getVersion() + ".jar";
             String pathToBinary = jarResourcePath + jarName;
             //TODO: below resource check probably not working at runtime after file is downloaded
-            if (Files.exists(Path.of(pathToBinary))/*resourceLoader.getResource("jars/" + jarName).exists()*/) {
+            if (Files.exists(Path.of(pathToBinary))*//*resourceLoader.getResource("jars/" + jarName).exists()*//*) {
                 View view = new JavaView(new JavaClassPathAnalysisInputLocation(pathToBinary));
                 programAnalyzerPort = new ProgramAnalyzerAdaptor(view, jarName);
                 log.info("Analyzing project = {}: {}", artifactDetail.getGroupId(), jarName);
-                /*if(test<=15) {
-                    programAnalyzerPort.analyze();
-                }*/
                 programAnalyzerPort.analyze();
             } else {
                 log.error("jar {} not found", jarName);
                 //throw new RuntimeException("jar " + jarName + " not found");
             }
-            /*test++;
-            if(test>15){
-                break;
-            }*/
-        }
+        }*/
+
+        View view = new JavaView(new JavaClassPathAnalysisInputLocation(args[0]));
+        log.info("Analyzing project = {}", args[0]);
+        programAnalyzerPort = new ProgramAnalyzerAdaptor(view, args[0]);
+        programAnalyzerPort.analyze();
     }
 }

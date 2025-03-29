@@ -1,6 +1,8 @@
 package de.upb.sse.cutNRun.analyzer;
 
+import de.upb.sse.cutNRun.analyzer.interprocedural.DFF;
 import de.upb.sse.cutNRun.analyzer.interprocedural.IDEValueAnalysisProblem;
+import de.upb.sse.cutNRun.analyzer.interprocedural.IDEValueAnalysisProblemDFF;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSource;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.ArgumentSourceAnalysis;
 import de.upb.sse.cutNRun.analyzer.intraprocedural.Result;
@@ -14,13 +16,19 @@ import de.upb.sse.cutNRun.dataRecorder.ExcelWriterPort;
 import heros.InterproceduralCFG;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import sootup.analysis.interprocedural.icfg.JimpleBasedInterproceduralCFG;
 import sootup.analysis.interprocedural.ide.JimpleIDESolver;
 import sootup.callgraph.ClassHierarchyAnalysisAlgorithm;
 import sootup.core.graph.StmtGraph;
 import sootup.core.jimple.basic.Value;
+import sootup.core.jimple.common.constant.ClassConstant;
+import sootup.core.jimple.common.constant.Constant;
+import sootup.core.jimple.common.constant.StringConstant;
 import sootup.core.jimple.common.expr.AbstractInvokeExpr;
 import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
+import sootup.core.jimple.common.ref.JStaticFieldRef;
+import sootup.core.jimple.common.stmt.AbstractDefinitionStmt;
 import sootup.core.jimple.common.stmt.JAssignStmt;
 import sootup.core.jimple.common.stmt.JInvokeStmt;
 import sootup.core.jimple.common.stmt.Stmt;
@@ -28,6 +36,7 @@ import sootup.core.model.SootClass;
 import sootup.core.model.SootMethod;
 import sootup.core.signatures.MethodSignature;
 import sootup.core.views.View;
+import sootup.java.core.JavaSootMethod;
 import sootup.java.core.views.JavaView;
 
 import java.util.*;
@@ -146,19 +155,19 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         log.info("----------------------------------------");
         log.info("Starting inter-procedural analysis");
         log.info("Entry point:" + methodWithReflection.toString());
-        ExcelWriterPort excelWriter = new ExcelWriterAdapter("RQ3_Values", false);
+        ExcelWriterPort excelWriter = new ExcelWriterAdapter("RQ3_Values-" + jarName.replace("./jars/","-"), false);
         excelWriter.setHeaders("statementId", "project", "statement", "Value", "Error", "Error message", "testing values");
         Map<String, Object[]> excelData = new LinkedHashMap<>();
         String statementId = jarName + "_" + methodWithReflection.getDeclaringClassType() + "_"
                 + methodWithReflection.getSignature().getSubSignature().toString() + "_" + startStmt.getPositionInfo().getStmtPosition().getFirstLine();
         try {
-            if (!excelWriter.isJarWritten(jarName)) {
+            //if (!excelWriter.isJarWritten(jarName)) {
                 final List<MethodSignature> startMethod = Collections.singletonList(methodWithReflection.getSignature());
                 //final List<MethodSignature> mainMethodEntryPoints = getMainMethodEntryPoints();
                 final List<MethodSignature> cgEntryPoints = view.getClasses()
                                                                 .flatMap(sootClass -> sootClass.getMethods().stream())
                                                                 .filter(sootMethod -> sootMethod.isPublic())
-                                                                .filter(sootMethod -> sootMethod.hasBody())
+                                                                //.filter(sootMethod -> sootMethod.hasBody())
                                                                 .map(SootMethod::getSignature)
                                                                 .collect(Collectors.toList());
 
@@ -182,9 +191,15 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
         }while (!temp.isEmpty());
         log.info("testing statements end");*/
                 //TODO: testing end
+                List<JavaSootMethod> cgEntryPointMethods = (List<JavaSootMethod>) icfg.getCg().getEntryMethods().stream()
+                                                                                      .map(methodSignature -> view.getMethod(methodSignature).get())
+                                                                                      .collect(Collectors.toList());
+                Map<DFF, String> staticFieldsValueMap = collectInitializedStaticField();
 
-                IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(backwardICFG, startMethod, startStmt, (JavaView) view);
-                JimpleIDESolver<Value, Set<String>, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
+                /*IDEValueAnalysisProblem problem = new IDEValueAnalysisProblem(backwardICFG, startMethod, startStmt, (JavaView) view);*/
+                IDEValueAnalysisProblemDFF problem = new IDEValueAnalysisProblemDFF(backwardICFG, cgEntryPointMethods, startStmt,
+                                                                                    (JavaView) view, icfg.getCg(), staticFieldsValueMap);
+                JimpleIDESolver<DFF, Set<String>, InterproceduralCFG<Stmt, SootMethod>> solver = new JimpleIDESolver<>(problem);
                 solver.solve();
                 /*Map<Value, Set<String>> result = solver.resultsAt(backwardICFG.getEndPointsOf(problem.getMethodsConsistingResult())
                                                                          .stream().findFirst().get());*/
@@ -196,12 +211,12 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                                                         .flatMap(method -> backwardICFG.getEndPointsOf(method).stream())
                                                         .collect(Collectors.toList());
                 Set<String> filteredResultValues = new HashSet<>();
-                Map<Value, Set<String>> rawResult = new HashMap<>();
+                Map<DFF, Set<String>> rawResult = new HashMap<>();
                 for (Stmt stmt : stmtsToCheckResults) {
-                    Map<Value, Set<String>> result = solver.resultsAt(stmt);
+                    Map<DFF, Set<String>> result = solver.resultsAt(stmt);
                     if (!result.isEmpty()) {
                         rawResult.putAll(result);
-                        for (Value key : result.keySet()) {
+                        for (DFF key : result.keySet()) {
                             Set<String> values = result.get(key);
                             log.info("RESULT: {} = {}", key, values);
                             if (CollectionUtils.isNotEmpty(values) && !values.equals(new HashSet<>(Arrays.asList("<<TOP>>")))) {
@@ -214,13 +229,45 @@ public class ProgramAnalyzerAdaptor implements ProgramAnalyzerPort {
                 log.info("FINAL RESULT: {}", filteredResultValues);
                 //log.info("RESULT: {} = {}", result.keySet().stream().findFirst().get(), result.values().stream().findFirst().get());
                 log.info("End of inter-procedural analysis");
-            }
+            //}
         } catch (Exception e) {
+            String stacktrace = ExceptionUtils.getStackTrace(e);
             e.printStackTrace();
-            excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "ERROR", e.getMessage(), ""});
+            excelData.put(statementId, new Object[]{statementId, jarName, startStmt, "", "ERROR", stacktrace, ""});
         } finally {
             excelWriter.saveData(excelData);
         }
+    }
+
+    private Map<DFF, String> collectInitializedStaticField() {
+        List<SootMethod> clinitMethods = view.getClasses()
+                                             .flatMap(sootClass -> sootClass.getMethods().stream())
+                                             .filter(method -> method.getName().equals("<clinit>"))
+                                             .collect(Collectors.toList());
+
+        List<Stmt> abstractDefinitionStmts = clinitMethods.stream()
+                                                          .flatMap(method -> method.getBody().getStmts().stream())
+                                                          .filter(stmt -> stmt instanceof AbstractDefinitionStmt)
+                                                          .collect(Collectors.toList());
+
+        Map<DFF, String> staticFieldValueMap = new HashMap<>();
+
+        for (Stmt definitionStmt : abstractDefinitionStmts) {
+            AbstractDefinitionStmt stmt = (AbstractDefinitionStmt) definitionStmt;
+            Value leftOp = stmt.getLeftOp();
+            Value rightOp = stmt.getRightOp();
+            if (leftOp instanceof JStaticFieldRef && rightOp instanceof Constant) {
+                String value = null;
+                if (rightOp instanceof StringConstant) {
+                    value = ((StringConstant) rightOp).getValue();
+                    staticFieldValueMap.put(DFF.asDFF(leftOp, view), value);
+                } else if (rightOp instanceof ClassConstant) {
+                    value = ((ClassConstant) rightOp).getValue();
+                    staticFieldValueMap.put(DFF.asDFF(leftOp, view), value);
+                }
+            }
+        }
+        return staticFieldValueMap;
     }
 
     private List<MethodSignature> getMainMethodEntryPoints() {

@@ -9,12 +9,16 @@ import sootup.core.jimple.common.expr.JVirtualInvokeExpr;
 import sootup.core.jimple.common.stmt.JAssignStmt;
 import sootup.core.jimple.common.stmt.JInvokeStmt;
 import sootup.core.jimple.common.stmt.Stmt;
+import sootup.core.model.SootClass;
+import sootup.core.model.SootMethod;
 import sootup.core.signatures.MethodSignature;
 import sootup.core.types.ClassType;
 import sootup.core.views.View;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 public class AnalysisHelper {
     public static JVirtualInvokeExpr getJVirtualInvokeExpr(Stmt stmt) {
@@ -66,6 +70,41 @@ public class AnalysisHelper {
             }
         }
         return null;
+    }
+
+    public static boolean isMethodHasBody(JVirtualInvokeExpr jVirtualInvokeExpr, View view){
+        if(jVirtualInvokeExpr != null) {
+            Optional<? extends SootMethod> sootMethod = view.getMethod(jVirtualInvokeExpr.getMethodSignature());
+            if(sootMethod.isPresent()){
+                return sootMethod.get().hasBody();
+            }
+        }
+        return false;
+    }
+
+    public static boolean isAbstractMethod(JVirtualInvokeExpr jVirtualInvokeExpr, View view){
+        if(jVirtualInvokeExpr != null) {
+            Optional<? extends SootMethod> sootMethod = view.getMethod(jVirtualInvokeExpr.getMethodSignature());
+            if(sootMethod.isPresent()){
+                return sootMethod.get().isAbstract();
+            }
+        }
+        return false;
+    }
+
+    public static boolean isSubClass(SootClass subClass, ClassType superClassType, View view) {
+        List<ClassType> parentClasses = new ArrayList();
+        while (subClass.hasSuperclass() && !subClass.getSuperclass().get().getFullyQualifiedName().equals("java.lang.Object")) {
+            ClassType classType = subClass.getSuperclass().get();
+            Optional<? extends SootClass> sootClass = view.getClass(classType);
+            if(sootClass.isPresent()){
+                parentClasses.add(classType);
+                subClass = sootClass.get();
+            } else {
+                break;
+            }
+        }
+        return parentClasses.contains(superClassType);
     }
 
     public static boolean isNewStringObjectCreationSignature(MethodSignature specialInvokeMethodSignature, View view) {
