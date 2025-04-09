@@ -151,4 +151,43 @@ public class ExcelWriterAdapter implements ExcelWriterPort {
         }
         return false;
     }
+
+
+    public List<Object[]> readExcelDataAsIs() throws IOException {
+        FileInputStream file = new FileInputStream(new File(location + java.io.File.separator
+                                                                    + fileName + ".xlsx"));
+        //Create Workbook instance holding reference to .xlsx file
+        XSSFWorkbook workbook = new XSSFWorkbook(file);
+
+        //Get first/desired sheet from the workbook
+        XSSFSheet sheet = workbook.getSheetAt(0);
+
+        //Iterate through each rows one by one
+        Iterator<Row> rowIterator = sheet.iterator();
+        List<Object[]> data = new ArrayList<>();
+        while (rowIterator.hasNext()) {
+            Row row = rowIterator.next();
+            //For each row, iterate through all the columns
+            Iterator<Cell> cellIterator = row.cellIterator();
+            Object[] rowData = new Object[headers.length];
+            int cellIndex = 0;
+            while (cellIterator.hasNext()) {
+                Cell cell = cellIterator.next();
+                //Check the cell type and format accordingly
+                switch (cell.getCellType()) {
+                    case NUMERIC:
+                        rowData[cellIndex] = cell.getNumericCellValue();
+                        break;
+                    case STRING:
+                        rowData[cellIndex] = cell.getStringCellValue();
+                        break;
+                }
+                cellIndex++;
+            }
+            System.out.println("");
+            data.add(rowData);
+        }
+        file.close();
+        return data;
+    }
 }
